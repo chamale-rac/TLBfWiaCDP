@@ -24,15 +24,15 @@ pub const RenderSystem = struct {
         defer arena.deinit();
         const allocator = arena.allocator();
 
-        var commands = std.ArrayList(DrawCommand).init(allocator);
-        defer commands.deinit();
+        var commands = std.ArrayListUnmanaged(DrawCommand){};
+        defer commands.deinit(allocator);
 
         // Backgrounds
         var bg_it = world.background_store.iterator();
         while (bg_it.next()) |entry| {
             const e = entry.key_ptr.*;
             const z = if (world.z_index_store.get(e)) |zi| zi.value else 0;
-            try commands.append(.{ .z = z, .x = 0, .y = 0, .cmd = .{ .background = entry.value_ptr.texture } });
+            try commands.append(allocator, .{ .z = z, .x = 0, .y = 0, .cmd = .{ .background = entry.value_ptr.texture } });
         }
 
         // Sprites
@@ -44,7 +44,7 @@ pub const RenderSystem = struct {
                 const z = if (world.z_index_store.get(e)) |zi| zi.value else 0;
                 const spr = entry.value_ptr.*;
                 const src = spr.calcSourceRect();
-                try commands.append(.{
+                try commands.append(allocator, .{
                     .z = z,
                     .x = tr.x,
                     .y = tr.y,

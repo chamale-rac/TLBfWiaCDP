@@ -54,7 +54,7 @@ pub const AnimatedSprite = struct {
         const frames = anim.frames;
         var idx = self.frame_index;
         if (idx < 0) idx = 0;
-        if (idx >= frames.len) idx = frames.len - 1;
+        if (idx >= @as(i32, @intCast(frames.len))) idx = @as(i32, @intCast(frames.len - 1));
         const idx_usize: usize = @intCast(idx);
         const col_1based = frames[idx_usize];
         const col = if (col_1based <= 0) 0 else col_1based - 1;

@@ -12,10 +12,10 @@ pub const InputSystem = struct {
                 v.vx = 0;
                 v.vy = 0;
                 const speed: f32 = 100;
-                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.key_w)) v.vy -= speed;
-                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.key_s)) v.vy += speed;
-                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.key_a)) v.vx -= speed;
-                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.key_d)) v.vx += speed;
+                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.w)) v.vy -= speed;
+                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.s)) v.vy += speed;
+                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.a)) v.vx -= speed;
+                if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.d)) v.vx += speed;
             }
         }
     }

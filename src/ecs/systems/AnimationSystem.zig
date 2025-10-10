@@ -13,7 +13,7 @@ pub const AnimationSystem = struct {
                 sprite.frame_time -= seconds_per_frame;
                 const anim = sprite.getCurrentAnimation();
                 const frames_len_i32: i32 = @intCast(anim.frames.len);
-                sprite.frame_index = (sprite.frame_index + 1) % frames_len_i32;
+                sprite.frame_index = @rem(sprite.frame_index + 1, frames_len_i32);
             }
         }
     }
