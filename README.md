@@ -18,3 +18,12 @@ zig build run
 ```
 
 The executable will be created in `zig-out/bin/` directory.
+
+### Assets
+
+Place the following files under `assets/`:
+- `background_desert.png` (decorative scene background)
+- `lpc_player.png` (LPC 832x3456, 64x64 frames)
+- `campfire_128x64.png` (frames 32x32, second row anim 1-1-2-2-3-3-4-4)
+
+On build, assets are installed to `zig-out/bin/assets/` and loaded at runtime.

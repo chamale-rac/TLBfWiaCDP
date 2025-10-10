@@ -1,0 +1,70 @@
+----
+GENERAL:
+
+Ok, right now I have a functional raylib zig baseline project.
+
+This is the fundamental for implementing the requirements for the engine I need to build. 
+
+The 2d engine needs to be based on ECS (Entity Component System) Architecture.
+-----
+
+
+----
+GOALS:
+
+1. Be able to draw a scene background for the game.
+2. Be able to draw a player character using an animated sprite.
+3. Create an input system to allow changing the player position respect the world.
+4. Be able to add animated enemies, allies or objects to the world.
+----
+
+----
+SPECIFICATIONS:
+
+GOAL 1:
+1. Right now the background is decorative, in future iterations we will implement intgrid logic and system. But for now we need to be able to render something representative and with basic relevant logic for the engine.
+2. I will use for this initial implementation a single image Desert Top View Vector Art.
+
+GOAL 2:
+1. For the characters im using the standard of Universal LPC Spritesheet Generator. That has the next specifications and distribution of animations.
+And 832x3456 image with the sprite layer (example body, head, weapon, etc...) This means frames of 64x64
+
+The animations come in the next distribution (always in rows sequence back, left, front, right) and in the next order and frames usage (frames count starting on 1 not 0, this means 1 is the first)
+
+The animations I need to use from the sprite sheet are for now. 
+
+Walk, Run and Idle.
+
+Walk start at row 5 and frames are used as 1-2-3-4-5-6-7-8
+Run start at row 39 and frames are used as 1-2-3-4-5-6-7
+Idle start at row 23 and frames are usead as 1-1-0
+
+GOAL 3: 
+This need to be done synching animations with the movement states. 
+
+GOAL 4:
+PLayer, characters and objects in escene for rendering are the same.
+
+In this first iteration the animated object we are rendering is Fire Camp 128*64, each frame 32*32, the animation is in the second row as 1-1-2-2-3-3-4-4
+----
+
+----
+CONSIDERATIONS:
+
+If we have layered sprites, we need to be able to determine the z-index of heach layer of the sprite.
+To determine the available animations.
+Since the animations are in single image. We have variables as image size and frame size. 
+And for the characters animations we have start row (back left front right starting from that start row)
+For static object animations we can have single direction animations and specific image size and frame size.
+
+Take in consideration that there can also static objects without animation. 
+----
+
+----
+Remember right now we are not implementing Tilemaps, Intgrid, Cameras, Enemy Spawning Sytems or AI.
+So focus on the required goals but keep the system Architecture well desingned for future iterations where this themes will be implemented. 
+----
+
+----
+Implement cleand code and well arquitectured separated by concerns in files and directories. And robust.
+----

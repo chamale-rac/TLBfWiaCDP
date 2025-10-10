@@ -4,58 +4,98 @@
 
 const raylib = @import("raylib");
 const raygui = @import("raygui");
+const std = @import("std");
+const WorldMod = @import("ecs/World.zig");
+const Assets = @import("assets/Assets.zig");
+const LPC = @import("assets/LPC.zig");
+const Transform2D = @import("ecs/components/Transform2D.zig");
+const Velocity2D = @import("ecs/components/Velocity2D.zig");
+const AnimatedSprite = @import("ecs/components/AnimatedSprite.zig");
+const Background = @import("ecs/components/Background.zig");
+const ZIndex = @import("ecs/components/ZIndex.zig");
+const InputSystem = @import("ecs/systems/InputSystem.zig");
+const MovementSystem = @import("ecs/systems/MovementSystem.zig");
+const AnimationSystem = @import("ecs/systems/AnimationSystem.zig");
+const RenderSystem = @import("ecs/systems/RenderSystem.zig");
 
 pub fn main() !void {
     // Initialize raylib
-    raylib.cdef.InitWindow(800, 450, "Raylib-Zig Example");
+    raylib.cdef.InitWindow(960, 540, "TLBfWiaCDP - ECS 2D");
     defer raylib.cdef.CloseWindow();
 
-    // Set target FPS
     raylib.cdef.SetTargetFPS(60);
 
-    // Main game loop
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Load assets (requires window created)
+    var assets = Assets.Assets.load(allocator);
+    defer assets.unload();
+
+    // World
+    var world = WorldMod.World.init(allocator);
+    defer world.deinit();
+
+    // Background entity
+    const bg = world.create();
+    try world.background_store.set(bg, .{ .texture = assets.bg_desert });
+    try world.z_index_store.set(bg, .{ .value = -1000 });
+
+    // Player entity
+    const player = world.create();
+    try world.transform_store.set(player, .{ .x = 400, .y = 300 });
+    try world.velocity_store.set(player, .{ .vx = 0, .vy = 0 });
+    try world.sprite_store.set(player, .{
+        .texture = assets.lpc_player,
+        .grid = LPC.lpcGrid(),
+        .set = LPC.lpcAnimationSet(),
+        .current = .idle,
+        .direction = .front,
+        .seconds_per_frame = 0.12,
+        .layer = 0,
+    });
+    try world.z_index_store.set(player, .{ .value = 0 });
+
+    // Campfire entity (single row, 128x64 image, each frame 32x32, row index 1)
+    const camp = world.create();
+    try world.transform_store.set(camp, .{ .x = 300, .y = 320 });
+    // Define a simple single-direction animation using AnimatedSprite
+    const camp_set = AnimatedSprite.AnimationSet{
+        .idle = .{ .start_row = 1, .frames = &[_]i32{ 1, 1, 2, 2, 3, 3, 4, 4 } },
+        .walk = .{ .start_row = 1, .frames = &[_]i32{ 1, 2, 3, 4 } },
+        .run = .{ .start_row = 1, .frames = &[_]i32{ 1, 2, 3, 4 } },
+    };
+    try world.sprite_store.set(camp, .{
+        .texture = assets.campfire,
+        .grid = .{ .image_width = 128, .image_height = 64, .frame_width = 32, .frame_height = 32 },
+        .set = camp_set,
+        .current = .idle,
+        .direction = .back,
+        .seconds_per_frame = 0.15,
+        .layer = -1,
+    });
+    try world.z_index_store.set(camp, .{ .value = -1 });
+
+    var last_time: f32 = @floatCast(raylib.cdef.GetTime());
+
     while (!raylib.cdef.WindowShouldClose()) {
-        // Update
-        // (Your game logic goes here)
+        const now: f32 = @floatCast(raylib.cdef.GetTime());
+        const dt: f32 = now - last_time;
+        last_time = now;
+
+        // Update systems
+        InputSystem.InputSystem.update(&world, dt);
+        MovementSystem.MovementSystem.update(&world, dt);
+        AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
+        AnimationSystem.AnimationSystem.update(&world, dt);
 
         // Draw
         raylib.cdef.BeginDrawing();
         defer raylib.cdef.EndDrawing();
-
         raylib.cdef.ClearBackground(raylib.Color.ray_white);
-
-        // Draw some text
-        raylib.cdef.DrawText("Hello, Raylib-Zig!", 190, 200, 20, raylib.Color.dark_gray);
-        raylib.cdef.DrawText("Press ESC to close", 190, 230, 20, raylib.Color.dark_gray);
-
-        // Draw a simple shape
-        raylib.cdef.DrawCircle(400, 300, 50, raylib.Color.blue);
+        try RenderSystem.RenderSystem.draw(&world);
     }
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
-
-test "use other module" {
-    try std.testing.expectEqual(@as(i32, 150), lib.add(100, 50));
-}
-
-test "fuzz example" {
-    const Context = struct {
-        fn testOne(context: @This(), input: []const u8) anyerror!void {
-            _ = context;
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
-        }
-    };
-    try std.testing.fuzz(Context{}, Context.testOne, .{});
-}
-
-const std = @import("std");
-
-/// This imports the separate module containing `root.zig`. Take a look in `build.zig` for details.
-const lib = @import("TLBfWiaCDP_lib");
+// Tests removed from main executable to avoid pulling testing deps
