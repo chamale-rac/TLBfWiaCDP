@@ -39,7 +39,7 @@ pub fn main() !void {
 
     // Background entity
     const bg = world.create();
-    try world.background_store.set(bg, .{ .texture = assets.bg_desert });
+    try world.background_store.set(bg, .{ .texture = assets.bg_desert, .repeat = true });
     try world.z_index_store.set(bg, .{ .value = -1000 });
 
     // Player entity

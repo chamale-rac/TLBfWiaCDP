@@ -6,8 +6,8 @@ pub fn lpcGrid() AnimatedSprite.FrameGrid {
 
 pub fn lpcAnimationSet() AnimatedSprite.AnimationSet {
     return .{
-        .idle = .{ .start_row = 22, .frames = &[_]i32{ 1, 1, 0 } },
-        .walk = .{ .start_row = 4, .frames = &[_]i32{ 1, 2, 3, 4, 5, 6, 7, 8 } },
+        .idle = .{ .start_row = 22, .frames = &[_]i32{ 1, 1, 2 } },
+        .walk = .{ .start_row = 8, .frames = &[_]i32{ 2, 3, 4, 5, 6, 7, 8, 9 } },
         .run = .{ .start_row = 38, .frames = &[_]i32{ 1, 2, 3, 4, 5, 6, 7 } },
     };
 }
