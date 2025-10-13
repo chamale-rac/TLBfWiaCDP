@@ -80,8 +80,8 @@ pub fn main() !void {
     });
     try world.z_index_store.set(camp, .{ .value = -1 });
 
-    // Tilemap: load and autotile once
-    try TilemapLoadSystem.TilemapLoadSystem.loadDemo(&world, &assets);
+    // Tilemap: noise-based generation and autotile once
+    try TilemapLoadSystem.TilemapLoadSystem.loadFromNoise(&world, &assets);
     AutoTilingSystem.AutoTilingSystem.setup(&world);
 
     var last_time: f32 = @floatCast(raylib.cdef.GetTime());

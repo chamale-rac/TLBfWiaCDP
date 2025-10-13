@@ -80,6 +80,14 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("raylib", raylib);
     exe.root_module.addImport("raygui", raygui);
 
+    // Expose external/fastnoise.zig as a module importable as "fastnoise"
+    const fastnoise_mod = b.createModule(.{
+        .root_source_file = b.path("external/fastnoise.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.root_module.addImport("fastnoise", fastnoise_mod);
+
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
