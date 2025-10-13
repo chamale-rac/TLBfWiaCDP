@@ -1,5 +1,6 @@
 const std = @import("std");
 const ComponentStore = @import("ComponentStore.zig");
+const TilemapMod = @import("components/TileMap.zig");
 
 pub const Entity = u32;
 
@@ -15,6 +16,7 @@ pub const World = struct {
     sprite_store: ComponentStore.ComponentStore(@import("components/AnimatedSprite.zig").AnimatedSprite),
     background_store: ComponentStore.ComponentStore(@import("components/Background.zig").Background),
     z_index_store: ComponentStore.ComponentStore(@import("components/ZIndex.zig").ZIndex),
+    tilemap_store: ComponentStore.ComponentStore(TilemapMod.Tilemap),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -25,15 +27,23 @@ pub const World = struct {
             .sprite_store = ComponentStore.ComponentStore(@import("components/AnimatedSprite.zig").AnimatedSprite).init(allocator),
             .background_store = ComponentStore.ComponentStore(@import("components/Background.zig").Background).init(allocator),
             .z_index_store = ComponentStore.ComponentStore(@import("components/ZIndex.zig").ZIndex).init(allocator),
+            .tilemap_store = ComponentStore.ComponentStore(TilemapMod.Tilemap).init(allocator),
         };
     }
 
     pub fn deinit(self: *Self) void {
+        // Free nested allocations first
+        var it = self.tilemap_store.iterator();
+        while (it.next()) |entry| {
+            var tm = entry.value_ptr;
+            tm.deinit(self.allocator);
+        }
         self.transform_store.deinit();
         self.velocity_store.deinit();
         self.sprite_store.deinit();
         self.background_store.deinit();
         self.z_index_store.deinit();
+        self.tilemap_store.deinit();
     }
 
     pub fn create(self: *Self) Entity {

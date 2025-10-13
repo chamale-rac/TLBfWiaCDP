@@ -17,6 +17,9 @@ const InputSystem = @import("ecs/systems/InputSystem.zig");
 const MovementSystem = @import("ecs/systems/MovementSystem.zig");
 const AnimationSystem = @import("ecs/systems/AnimationSystem.zig");
 const RenderSystem = @import("ecs/systems/RenderSystem.zig");
+const TilemapLoadSystem = @import("ecs/systems/TilemapLoadSystem.zig");
+const AutoTilingSystem = @import("ecs/systems/AutoTilingSystem.zig");
+const TilemapRenderSystem = @import("ecs/systems/TilemapRenderSystem.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -38,9 +41,9 @@ pub fn main() !void {
     defer world.deinit();
 
     // Background entity
-    const bg = world.create();
-    try world.background_store.set(bg, .{ .texture = assets.bg_desert, .repeat = true });
-    try world.z_index_store.set(bg, .{ .value = -1000 });
+    // const bg = world.create();
+    // try world.background_store.set(bg, .{ .texture = assets.bg_desert, .repeat = true });
+    // try world.z_index_store.set(bg, .{ .value = -1000 });
 
     // Player entity
     const player = world.create();
@@ -77,6 +80,10 @@ pub fn main() !void {
     });
     try world.z_index_store.set(camp, .{ .value = -1 });
 
+    // Tilemap: load and autotile once
+    try TilemapLoadSystem.TilemapLoadSystem.loadDemo(&world, &assets);
+    AutoTilingSystem.AutoTilingSystem.setup(&world);
+
     var last_time: f32 = @floatCast(raylib.cdef.GetTime());
 
     while (!raylib.cdef.WindowShouldClose()) {
@@ -94,6 +101,8 @@ pub fn main() !void {
         raylib.cdef.BeginDrawing();
         defer raylib.cdef.EndDrawing();
         raylib.cdef.ClearBackground(raylib.Color.ray_white);
+        // Draw tilemap first (water then grass per cell)
+        TilemapRenderSystem.TilemapRenderSystem.draw(&world);
         try RenderSystem.RenderSystem.draw(&world);
     }
 }
