@@ -1,0 +1,187 @@
+----
+El objetivo de esta tarea es que su engine para poder soportar fondos. 
+
+Usando el engine que han estado construyendo, deben mostrar a su engine dibujando un fondo.
+
+Dibujen su tilemap en la pantalla, incluyan en el sistema, lógica relevante para su juego. 
+Deben tener sistemas para cargar un tilemap, para hacer el autotiling y para renderizar el tilemap
+----
+
+const int dx[8] = { -1,  0,  1, -1, 1, -1, 0, 1 }; 
+const int dy[8] = { -1, -1, -1,  0, 0,  1, 1, 1 };
+std::map<uint8_t, std::pair<int, int>> d_corner = {
+    {0, {  1,  1 }},
+    {2, { -1,  1 }},
+    {5, {  1, -1 }},
+    {7, { -1, -1 }},
+};
+
+class AutoTilingSetupSystem : public System {
+public:
+    void setup() override {
+        auto view = scene->r.view<TileMapcomponent>();
+        for (auto entity : view) {
+            auto& tilemap = view.get<TileMapcomponent>(entity);
+            for (int y = 0; y < tilemap.height; y++) {
+                for (int x = 0; x < tilemap.width; x++) {
+                    int index = y * tilemap.width + x;
+                    TileComponent& tile = tilemap.tiles[index];
+                    if (!tile.needsAutoTiling) {
+                        continue;
+                    }
+                    uint8_t bitmask = 0;
+                    for(int i = 0; i < 8; i++) {
+                        int nx = x + dx[i]; // 39
+                        int ny = y + dy[i]; // 29
+                        //
+                        // si no se ha salido del mapa
+                        if (nx < 0 || nx >= tilemap.width || ny < 0 || ny >= tilemap.width) {
+                            continue;
+                        }                        if (i == 0 || i == 2 || i == 5 || i == 7) { // este vecino es diagonal
+                            int nx1 = nx + d_corner[i].first; 
+                            int ny1 = ny + 0;
+                            int nx2 = nx + 0;
+                            int ny2 = ny + d_corner[i].second;
+                            if (nx1 < 0 || nx1 >= tilemap.width || ny1 < 0 || ny1 >= tilemap.height || 
+                                nx2 < 0 || nx2 >= tilemap.width || ny2 < 0 || ny2 >= tilemap.height) {
+                                continue;
+                            }
+                            if (
+                                tilemap.tiles[ny1 * tilemap.width + nx1].type 
+                                != 
+                                tilemap.tiles[ny * tilemap.width + nx].type
+                                    || 
+                                tilemap.tiles[ny2 * tilemap.width + nx2].type
+                                !=
+                                tilemap.tiles[ny * tilemap.width + nx].type
+                            )
+                            {
+                                continue;
+                            }
+                        }
+                        int neighborIndex = ny * tilemap.width + nx;
+                        TileComponent& neighborTile = tilemap.tiles[neighborIndex];
+                        if (tile.type == neighborTile.type) {
+                            bitmask |= 1 << i;   
+                        }
+                    }                    auto iter = m.find(bitmask);
+
+                    if (iter == m.end()) {
+                        tile.ix = 0;
+                        tile.iy = 0;
+                        std::print("Tile not found", static_cast<int>(bitmask));
+                        exit(1);
+                    } else {
+                        auto& pairs = iter->second;
+
+                        if (pairs.size() == 1) {
+                            tile.ix = pairs[0].first;
+                            tile.iy = pairs[0].second;
+                        } else {
+                            int index = rand() % pairs.size();
+                            tile.ix = pairs[index].first;
+                            tile.iy = pairs[index].second;
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
+enum TileType {
+    WATER,
+    GRASS
+};
+struct TileComponent {
+    int x;
+    int y;
+    TileType type;
+    Texture2D upTexture;
+    Texture2D downTexture;
+    float scale = 5.0;
+    bool needsAutoTiling = false;
+    int ix = 0; // x, y indices in tileset 
+    int iy = 0;
+};
+struct TileMapcomponent {
+    int width;
+    int height;
+    int tileSize;
+    std::vector<TileComponent> tiles;
+}
+
+
+std::map<uint8_t, std::vector<std::pair<int, int>>> m = {
+    {  2, {{   0,  80 }} }, // north
+    {  8, {{  48,  96 }} },
+    { 10, {{  80, 112 }} },
+    { 11, {{  48,  80 }} },
+    { 16, {{   0,  96 }} },
+    { 18, {{  64, 112 }} },
+    { 22, {{  16,  80 }} },
+    { 24, {{  16,  96 }, {  32,  96 }} },
+    { 26, {{ 144,  32 }} },
+    { 27, {{ 144,  80 }} },
+    { 30, {{  96,  80 }} },
+    { 31, {{  32,  80 }} },
+    { 64, {{   0,  32 }} },
+    { 66, {{   0,  48 }, {   0,  64 }} },
+    { 72, {{  80,  96 }} },
+    { 74, {{ 128,  32 }} },
+    { 75, {{ 112,  80 }} },
+    { 80, {{  64,  96 }} },
+    { 82, {{ 144,  48 }} },
+    { 86, {{ 128,  80 }} },
+    { 88, {{ 128,  48 }} },
+    { 90, {{   0, 112 }, {  16, 112 }} },
+    { 91, {{  32, 112 }} },
+    { 94, {{  96,  48 }} },
+    { 95, {{  96, 112 }} },
+    {104, {{  48,  48 }} },
+    {106, {{ 144,  64 }} },
+    {107, {{  48,  64 }} },
+    {120, {{ 112,  64 }} },
+    {122, {{  48, 112 }} },
+    {123, {{ 112, 112 }} },
+    {126, {{  48, 112 }} },
+    {127, {{  64,  64 }} },
+    {208, {{  16,  48 }} },
+    {210, {{  96,  64 }} },
+    {214, {{  16,  64 }} },
+    {216, {{ 128,  64 }} },
+    {218, {{  96,  32 }} },
+    {219, {{  32, 112 }} },
+    {222, {{  96,  96 }} },
+    {223, {{  80,  64 }} },
+    {248, {{  32,  48 }} },
+    {250, {{ 112,  96 }} },
+    {251, {{  64,  80 }} },
+    {254, {{  80,  80 }} },
+    {255, {
+        {   0,   0 }, {  16,   0 }, {  32,   0 }, {  48,   0 }, {  64,   0 }, {  80,   0 },
+        {   0,  16 }, {  16,  16 }, {  32,  16 }, {  48,  16 }, {  64,  16 }, {  80,  16 },
+        {  32,  64 }
+    }
+    },
+    {  0, {
+        { 16,  32 }, {  32,  32 }, {  48,  32 },
+        { 64,  32 }, {  80,  32 }, {  64,  48 }, {  80,  48 }
+    }
+    }
+};
+
+----
+int tilemapData[10][10] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 0, 0, 0, 0, 0, 0, 1, 0},
+    {0, 1, 0, 0, 0, 0, 0, 0, 1, 0},
+    {0, 1, 0, 0, 1, 1, 0, 0, 1, 0},
+    {0, 1, 0, 0, 1, 1, 0, 0, 1, 0},
+    {0, 1, 0, 0, 0, 0, 0, 0, 1, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+----

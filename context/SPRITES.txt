@@ -37,7 +37,7 @@ Walk, Run and Idle.
 
 Walk start at row 5 and frames are used as 1-2-3-4-5-6-7-8
 Run start at row 39 and frames are used as 1-2-3-4-5-6-7
-Idle start at row 23 and frames are usead as 1-1-0
+Idle start at row 23 and frames are usead as 1-1-2
 
 GOAL 3: 
 This need to be done synching animations with the movement states. 
