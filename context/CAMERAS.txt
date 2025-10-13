@@ -1,0 +1,5 @@
+El objetivo de esta tarea es que su engine para poder soportar camaras. 
+
+Para esta primera parte, usando el engine que han estado construyendo, deben mostrar a su engine pinte una cámara que siga a su personaje.
+
+Incluyan en el sistema, lógica relevante para sus cameras (setup, follow system, effect systems).

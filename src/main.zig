@@ -20,6 +20,8 @@ const RenderSystem = @import("ecs/systems/RenderSystem.zig");
 const TilemapLoadSystem = @import("ecs/systems/TilemapLoadSystem.zig");
 const AutoTilingSystem = @import("ecs/systems/AutoTilingSystem.zig");
 const TilemapRenderSystem = @import("ecs/systems/TilemapRenderSystem.zig");
+const CameraSystem = @import("ecs/systems/CameraSystem.zig");
+const CameraComp = @import("ecs/components/Camera2D.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -80,6 +82,13 @@ pub fn main() !void {
     });
     try world.z_index_store.set(camp, .{ .value = -1 });
 
+    // Camera entity: follow player
+    const cam_e = world.create();
+    // Initialize camera centered on player with screen center offset and default zoom 1
+    try CameraSystem.CameraSystem.setupCenterOn(&world, cam_e, player, 1.0);
+    if (world.camera_store.getPtr(cam_e)) |cam|
+        cam.follow_lerp_speed = 100.0; // smooth following
+
     // Tilemap: noise-based generation and autotile once
     try TilemapLoadSystem.TilemapLoadSystem.loadFromNoise(&world, &assets);
     AutoTilingSystem.AutoTilingSystem.setup(&world);
@@ -96,11 +105,16 @@ pub fn main() !void {
         MovementSystem.MovementSystem.update(&world, dt);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
+        // Update camera effects/follow
+        CameraSystem.CameraSystem.update(&world, dt);
 
         // Draw
         raylib.cdef.BeginDrawing();
         defer raylib.cdef.EndDrawing();
         raylib.cdef.ClearBackground(raylib.Color.ray_white);
+        // 2D world rendering under camera
+        CameraSystem.CameraSystem.begin2D(&world, cam_e);
+        defer CameraSystem.CameraSystem.end2D();
         // Draw tilemap first (water then grass per cell)
         TilemapRenderSystem.TilemapRenderSystem.draw(&world);
         try RenderSystem.RenderSystem.draw(&world);

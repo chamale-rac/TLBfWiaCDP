@@ -1,6 +1,7 @@
 const std = @import("std");
 const ComponentStore = @import("ComponentStore.zig");
 const TilemapMod = @import("components/TileMap.zig");
+const CameraComp = @import("components/Camera2D.zig");
 
 pub const Entity = u32;
 
@@ -17,6 +18,7 @@ pub const World = struct {
     background_store: ComponentStore.ComponentStore(@import("components/Background.zig").Background),
     z_index_store: ComponentStore.ComponentStore(@import("components/ZIndex.zig").ZIndex),
     tilemap_store: ComponentStore.ComponentStore(TilemapMod.Tilemap),
+    camera_store: ComponentStore.ComponentStore(CameraComp.Camera2D),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -28,6 +30,7 @@ pub const World = struct {
             .background_store = ComponentStore.ComponentStore(@import("components/Background.zig").Background).init(allocator),
             .z_index_store = ComponentStore.ComponentStore(@import("components/ZIndex.zig").ZIndex).init(allocator),
             .tilemap_store = ComponentStore.ComponentStore(TilemapMod.Tilemap).init(allocator),
+            .camera_store = ComponentStore.ComponentStore(CameraComp.Camera2D).init(allocator),
         };
     }
 
@@ -44,6 +47,7 @@ pub const World = struct {
         self.background_store.deinit();
         self.z_index_store.deinit();
         self.tilemap_store.deinit();
+        self.camera_store.deinit();
     }
 
     pub fn create(self: *Self) Entity {
