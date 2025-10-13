@@ -50,6 +50,9 @@ pub const CameraSystem = struct {
                 cam.shake_time_remaining -= dt;
                 if (cam.shake_time_remaining < 0) cam.shake_time_remaining = 0;
             }
+
+            // Clamp camera so view never shows outside tilemap bounds
+            clampToWorld(world, cam);
         }
     }
 
@@ -77,5 +80,55 @@ pub const CameraSystem = struct {
 
     pub fn end2D() void {
         raylib.cdef.EndMode2D();
+    }
+
+    fn clampToWorld(world: *WorldMod.World, cam: *CameraComp.Camera2D) void {
+        // Determine world bounds from tilemaps
+        var any_tm = false;
+        var min_x: f32 = 0;
+        var min_y: f32 = 0;
+        var max_x: f32 = 0;
+        var max_y: f32 = 0;
+        var tm_it = world.tilemap_store.iterator();
+        while (tm_it.next()) |tm_entry| {
+            const tm = tm_entry.value_ptr.*;
+            const draw_size: f32 = @as(f32, @floatFromInt(tm.tile_size)) * tm.scale;
+            const w = @as(f32, @floatFromInt(tm.width)) * draw_size;
+            const h = @as(f32, @floatFromInt(tm.height)) * draw_size;
+            if (!any_tm) {
+                min_x = 0;
+                min_y = 0;
+                max_x = w;
+                max_y = h;
+                any_tm = true;
+            } else {
+                if (w > max_x) max_x = w;
+                if (h > max_y) max_y = h;
+            }
+        }
+
+        if (!any_tm) return;
+
+        const screen_w: f32 = @floatFromInt(raylib.cdef.GetScreenWidth());
+        const screen_h: f32 = @floatFromInt(raylib.cdef.GetScreenHeight());
+        const zoom = if (cam.zoom <= 0) 1 else cam.zoom;
+
+        // Compute allowable target range so that the viewport stays inside bounds.
+        const min_target_x = min_x + cam.offset_x / zoom;
+        const max_target_x = max_x - (screen_w - cam.offset_x) / zoom;
+        const min_target_y = min_y + cam.offset_y / zoom;
+        const max_target_y = max_y - (screen_h - cam.offset_y) / zoom;
+
+        if (max_target_x < min_target_x) {
+            cam.computed_target_x = (min_x + max_x) * 0.5;
+        } else {
+            cam.computed_target_x = std.math.clamp(cam.computed_target_x, min_target_x, max_target_x);
+        }
+
+        if (max_target_y < min_target_y) {
+            cam.computed_target_y = (min_y + max_y) * 0.5;
+        } else {
+            cam.computed_target_y = std.math.clamp(cam.computed_target_y, min_target_y, max_target_y);
+        }
     }
 };
