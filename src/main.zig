@@ -20,6 +20,8 @@ const RenderSystem = @import("ecs/systems/RenderSystem.zig");
 const TilemapLoadSystem = @import("ecs/systems/TilemapLoadSystem.zig");
 const AutoTilingSystem = @import("ecs/systems/AutoTilingSystem.zig");
 const TilemapRenderSystem = @import("ecs/systems/TilemapRenderSystem.zig");
+const IntGridSystem = @import("ecs/systems/IntGridSystem.zig");
+const DebugRenderSystem = @import("ecs/systems/DebugRenderSystem.zig");
 const CameraSystem = @import("ecs/systems/CameraSystem.zig");
 const CameraComp = @import("ecs/components/Camera2D.zig");
 
@@ -93,6 +95,13 @@ pub fn main() !void {
     try TilemapLoadSystem.TilemapLoadSystem.loadFromNoise(&world, &assets);
     AutoTilingSystem.AutoTilingSystem.setup(&world);
 
+    // Initialize IntGrid system for walkability
+    IntGridSystem.IntGridSystem.setupFromTilemap(&world);
+
+    // Initialize debug render system
+    var debug_system = DebugRenderSystem.DebugRenderSystem{};
+    var input_system = InputSystem.InputSystem.init(&debug_system);
+
     var last_time: f32 = @floatCast(raylib.cdef.GetTime());
 
     while (!raylib.cdef.WindowShouldClose()) {
@@ -101,7 +110,7 @@ pub fn main() !void {
         last_time = now;
 
         // Update systems
-        InputSystem.InputSystem.update(&world, dt);
+        input_system.update(&world, dt);
         MovementSystem.MovementSystem.update(&world, dt);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
@@ -118,6 +127,16 @@ pub fn main() !void {
         // Draw tilemap first (water then grass per cell)
         TilemapRenderSystem.TilemapRenderSystem.draw(&world);
         try RenderSystem.RenderSystem.draw(&world);
+
+        // Draw debug overlay if enabled
+        debug_system.draw(&world);
+
+        // Draw UI text
+        raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 20, raylib.Color.black);
+        if (debug_system.show_debug) {
+            raylib.cdef.DrawText("Debug: ON (Green=Walkable, Red=Non-walkable)", 10, 35, 16, raylib.Color.red);
+            raylib.cdef.DrawText("Player collision points shown as small circles", 10, 55, 14, raylib.Color.blue);
+        }
     }
 }
 

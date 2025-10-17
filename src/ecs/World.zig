@@ -2,6 +2,7 @@ const std = @import("std");
 const ComponentStore = @import("ComponentStore.zig");
 const TilemapMod = @import("components/TileMap.zig");
 const CameraComp = @import("components/Camera2D.zig");
+const IntGridMod = @import("components/IntGrid.zig");
 
 pub const Entity = u32;
 
@@ -18,6 +19,7 @@ pub const World = struct {
     background_store: ComponentStore.ComponentStore(@import("components/Background.zig").Background),
     z_index_store: ComponentStore.ComponentStore(@import("components/ZIndex.zig").ZIndex),
     tilemap_store: ComponentStore.ComponentStore(TilemapMod.Tilemap),
+    intgrid_store: ComponentStore.ComponentStore(IntGridMod.IntGrid),
     camera_store: ComponentStore.ComponentStore(CameraComp.Camera2D),
 
     pub fn init(allocator: std.mem.Allocator) Self {
@@ -30,6 +32,7 @@ pub const World = struct {
             .background_store = ComponentStore.ComponentStore(@import("components/Background.zig").Background).init(allocator),
             .z_index_store = ComponentStore.ComponentStore(@import("components/ZIndex.zig").ZIndex).init(allocator),
             .tilemap_store = ComponentStore.ComponentStore(TilemapMod.Tilemap).init(allocator),
+            .intgrid_store = ComponentStore.ComponentStore(IntGridMod.IntGrid).init(allocator),
             .camera_store = ComponentStore.ComponentStore(CameraComp.Camera2D).init(allocator),
         };
     }
@@ -41,12 +44,20 @@ pub const World = struct {
             var tm = entry.value_ptr;
             tm.deinit(self.allocator);
         }
+
+        var intgrid_it = self.intgrid_store.iterator();
+        while (intgrid_it.next()) |entry| {
+            var intgrid = entry.value_ptr;
+            intgrid.deinit(self.allocator);
+        }
+
         self.transform_store.deinit();
         self.velocity_store.deinit();
         self.sprite_store.deinit();
         self.background_store.deinit();
         self.z_index_store.deinit();
         self.tilemap_store.deinit();
+        self.intgrid_store.deinit();
         self.camera_store.deinit();
     }
 
