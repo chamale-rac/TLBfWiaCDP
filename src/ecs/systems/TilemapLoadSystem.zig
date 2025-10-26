@@ -62,8 +62,9 @@ pub const TilemapLoadSystem = struct {
         var noise = fastnoise.Noise(f32){
             .noise_type = .simplex, // OpenSimplex2 equivalent in this lib
             .frequency = 0.05,
-            .seed = 8374298,
+            .seed = 123,
         };
+        // .seed = 8374298
 
         // Choose map size to cover window comfortably
         const tile_size: i32 = 16;
