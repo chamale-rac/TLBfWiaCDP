@@ -24,6 +24,8 @@ const IntGridSystem = @import("ecs/systems/IntGridSystem.zig");
 const DebugRenderSystem = @import("ecs/systems/DebugRenderSystem.zig");
 const CameraSystem = @import("ecs/systems/CameraSystem.zig");
 const CameraComp = @import("ecs/components/Camera2D.zig");
+const SpecialTilesGenerationSystem = @import("ecs/systems/SpecialTilesGenerationSystem.zig");
+const SpecialTilesRenderSystem = @import("ecs/systems/SpecialTilesRenderSystem.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -98,6 +100,19 @@ pub fn main() !void {
     // Initialize IntGrid system for walkability
     IntGridSystem.IntGridSystem.setupFromTilemap(&world);
 
+    // Initialize special tiles with configurable parameters
+    const special_tiles_config = SpecialTilesGenerationSystem.SpecialTilesConfig{
+        .seed = 67890, // Random seed for tile generation
+        .slowdown_frequency = 0.04, // 3% chance to start a slowdown sequence
+        .speedup_frequency = 0.09, // 3% chance to start a speedup sequence
+        .push_frequency = 0.02, // 1% chance to start a push tile
+        .slowdown_max_join = 5, // Random length 1-5 tiles, random walk direction at each step
+        .speedup_max_join = 6, // Random length 1-5 tiles, random walk direction at each step
+        .push_max_join = 1, // Only 1 push tile (no consecutive)
+        .min_distance = 3, // Each tile must be 3+ tiles away from all other tiles of same type
+    };
+    try SpecialTilesGenerationSystem.SpecialTilesGenerationSystem.generateFromTilemap(&world, special_tiles_config);
+
     // Initialize debug render system
     var debug_system = DebugRenderSystem.DebugRenderSystem{};
     var input_system = InputSystem.InputSystem.init(&debug_system);
@@ -126,6 +141,8 @@ pub fn main() !void {
         defer CameraSystem.CameraSystem.end2D();
         // Draw tilemap first (water then grass per cell)
         TilemapRenderSystem.TilemapRenderSystem.draw(&world);
+        // Draw special tiles (always visible)
+        SpecialTilesRenderSystem.SpecialTilesRenderSystem.draw(&world);
         try RenderSystem.RenderSystem.draw(&world);
 
         // Draw debug overlay if enabled

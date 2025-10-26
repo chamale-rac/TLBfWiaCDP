@@ -82,6 +82,18 @@ pub const CameraSystem = struct {
         raylib.cdef.EndMode2D();
     }
 
+    /// Immediately snap camera to target position (used for teleports)
+    pub fn snapToTarget(world: *WorldMod.World, camera_entity: WorldMod.Entity) void {
+        if (world.camera_store.getPtr(camera_entity)) |cam| {
+            if (cam.target_entity) |target| {
+                if (world.transform_store.get(target)) |tr| {
+                    cam.computed_target_x = tr.x;
+                    cam.computed_target_y = tr.y;
+                }
+            }
+        }
+    }
+
     fn clampToWorld(world: *WorldMod.World, cam: *CameraComp.Camera2D) void {
         // Determine world bounds from tilemaps
         var any_tm = false;

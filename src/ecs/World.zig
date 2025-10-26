@@ -3,6 +3,7 @@ const ComponentStore = @import("ComponentStore.zig");
 const TilemapMod = @import("components/TileMap.zig");
 const CameraComp = @import("components/Camera2D.zig");
 const IntGridMod = @import("components/IntGrid.zig");
+const SpecialTilesMod = @import("components/SpecialTiles.zig");
 
 pub const Entity = u32;
 
@@ -21,6 +22,7 @@ pub const World = struct {
     tilemap_store: ComponentStore.ComponentStore(TilemapMod.Tilemap),
     intgrid_store: ComponentStore.ComponentStore(IntGridMod.IntGrid),
     camera_store: ComponentStore.ComponentStore(CameraComp.Camera2D),
+    special_tiles_store: ComponentStore.ComponentStore(SpecialTilesMod.SpecialTiles),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -34,6 +36,7 @@ pub const World = struct {
             .tilemap_store = ComponentStore.ComponentStore(TilemapMod.Tilemap).init(allocator),
             .intgrid_store = ComponentStore.ComponentStore(IntGridMod.IntGrid).init(allocator),
             .camera_store = ComponentStore.ComponentStore(CameraComp.Camera2D).init(allocator),
+            .special_tiles_store = ComponentStore.ComponentStore(SpecialTilesMod.SpecialTiles).init(allocator),
         };
     }
 
@@ -51,6 +54,12 @@ pub const World = struct {
             intgrid.deinit(self.allocator);
         }
 
+        var special_tiles_it = self.special_tiles_store.iterator();
+        while (special_tiles_it.next()) |entry| {
+            var special_tiles = entry.value_ptr;
+            special_tiles.deinit(self.allocator);
+        }
+
         self.transform_store.deinit();
         self.velocity_store.deinit();
         self.sprite_store.deinit();
@@ -59,6 +68,7 @@ pub const World = struct {
         self.tilemap_store.deinit();
         self.intgrid_store.deinit();
         self.camera_store.deinit();
+        self.special_tiles_store.deinit();
     }
 
     pub fn create(self: *Self) Entity {
