@@ -1,16 +1,27 @@
 const raylib = @import("raylib");
+const std = @import("std");
 const WorldMod = @import("../World.zig");
 const IntGridSystem = @import("IntGridSystem.zig");
 const CollisionConfig = @import("../components/CollisionConfig.zig");
 
 pub const DebugRenderSystem = struct {
     show_debug: bool = false,
+    show_spawners: bool = true, // Show spawners by default
 
     pub fn toggle(self: *@This()) void {
         self.show_debug = !self.show_debug;
     }
 
+    pub fn toggleSpawners(self: *@This()) void {
+        self.show_spawners = !self.show_spawners;
+    }
+
     pub fn draw(self: *@This(), world: *WorldMod.World) void {
+        // Draw spawner zones (visible even when general debug is off)
+        if (self.show_spawners) {
+            self.drawSpawnerZones(world);
+        }
+
         if (!self.show_debug) return;
 
         var tm_it = world.tilemap_store.iterator();
@@ -77,6 +88,79 @@ pub const DebugRenderSystem = struct {
                 }
                 break; // Only draw for the first entity with velocity (player)
             }
+        }
+    }
+
+    fn drawSpawnerZones(self: *@This(), world: *WorldMod.World) void {
+        _ = self;
+        var spawner_it = world.spawner_store.iterator();
+        while (spawner_it.next()) |entry| {
+            const spawner = entry.value_ptr.*;
+
+            const color = spawner.getSpawnColor();
+            const center_x: i32 = @intFromFloat(spawner.center_x);
+            const center_y: i32 = @intFromFloat(spawner.center_y);
+
+            // Draw based on pattern type
+            switch (spawner.pattern) {
+                .line_horizontal => {
+                    const width: f32 = spawner.width;
+                    const left_x: f32 = spawner.center_x - width / 2.0;
+                    const right_x: f32 = spawner.center_x + width / 2.0;
+
+                    // Draw horizontal line
+                    raylib.cdef.DrawLineEx(raylib.Vector2{ .x = left_x, .y = spawner.center_y }, raylib.Vector2{ .x = right_x, .y = spawner.center_y }, 4.0, color);
+
+                    // Draw end markers
+                    raylib.cdef.DrawCircle(@intFromFloat(left_x), center_y, 8.0, color);
+                    raylib.cdef.DrawCircle(@intFromFloat(right_x), center_y, 8.0, color);
+                },
+                .line_vertical => {
+                    const height: f32 = spawner.height;
+                    const top_y: f32 = spawner.center_y - height / 2.0;
+                    const bottom_y: f32 = spawner.center_y + height / 2.0;
+
+                    // Draw vertical line
+                    raylib.cdef.DrawLineEx(raylib.Vector2{ .x = spawner.center_x, .y = top_y }, raylib.Vector2{ .x = spawner.center_x, .y = bottom_y }, 4.0, color);
+
+                    // Draw end markers
+                    raylib.cdef.DrawCircle(center_x, @intFromFloat(top_y), 8.0, color);
+                    raylib.cdef.DrawCircle(center_x, @intFromFloat(bottom_y), 8.0, color);
+                },
+                .circular => {
+                    // Draw circle outline
+                    raylib.cdef.DrawCircleLines(center_x, center_y, spawner.radius, color);
+                    raylib.cdef.DrawCircleLines(center_x, center_y, spawner.radius + 2.0, color);
+
+                    // Draw center marker
+                    raylib.cdef.DrawCircle(center_x, center_y, 6.0, color);
+                },
+                .random => {
+                    const width: f32 = spawner.width;
+                    const height: f32 = spawner.height;
+                    const left_x: f32 = spawner.center_x - width / 2.0;
+                    const top_y: f32 = spawner.center_y - height / 2.0;
+
+                    // Draw rectangle outline
+                    const rect = raylib.Rectangle{
+                        .x = left_x,
+                        .y = top_y,
+                        .width = width,
+                        .height = height,
+                    };
+                    raylib.cdef.DrawRectangleLinesEx(rect, 3.0, color);
+
+                    // Draw center marker
+                    raylib.cdef.DrawCircle(center_x, center_y, 6.0, color);
+                },
+            }
+
+            // Draw spawner status text near center
+            const text_x = center_x + 10;
+            const text_y = center_y - 20;
+            var buffer: [64]u8 = undefined;
+            const status_text = std.fmt.bufPrintZ(&buffer, "{d}/{d}", .{ spawner.active_enemies, spawner.max_enemies }) catch "?/?";
+            raylib.cdef.DrawText(status_text.ptr, text_x, text_y, 16, raylib.Color.white);
         }
     }
 };

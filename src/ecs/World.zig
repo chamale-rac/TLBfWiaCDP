@@ -4,6 +4,8 @@ const TilemapMod = @import("components/TileMap.zig");
 const CameraComp = @import("components/Camera2D.zig");
 const IntGridMod = @import("components/IntGrid.zig");
 const SpecialTilesMod = @import("components/SpecialTiles.zig");
+const EnemyComp = @import("components/Enemy.zig");
+const EnemySpawnerComp = @import("components/EnemySpawner.zig");
 
 pub const Entity = u32;
 
@@ -23,6 +25,8 @@ pub const World = struct {
     intgrid_store: ComponentStore.ComponentStore(IntGridMod.IntGrid),
     camera_store: ComponentStore.ComponentStore(CameraComp.Camera2D),
     special_tiles_store: ComponentStore.ComponentStore(SpecialTilesMod.SpecialTiles),
+    enemy_store: ComponentStore.ComponentStore(EnemyComp.Enemy),
+    spawner_store: ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -37,6 +41,8 @@ pub const World = struct {
             .intgrid_store = ComponentStore.ComponentStore(IntGridMod.IntGrid).init(allocator),
             .camera_store = ComponentStore.ComponentStore(CameraComp.Camera2D).init(allocator),
             .special_tiles_store = ComponentStore.ComponentStore(SpecialTilesMod.SpecialTiles).init(allocator),
+            .enemy_store = ComponentStore.ComponentStore(EnemyComp.Enemy).init(allocator),
+            .spawner_store = ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner).init(allocator),
         };
     }
 
@@ -69,6 +75,8 @@ pub const World = struct {
         self.intgrid_store.deinit();
         self.camera_store.deinit();
         self.special_tiles_store.deinit();
+        self.enemy_store.deinit();
+        self.spawner_store.deinit();
     }
 
     pub fn create(self: *Self) Entity {

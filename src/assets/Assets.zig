@@ -9,6 +9,7 @@ pub const Assets = struct {
     campfire: raylib.Texture2D,
     water: raylib.Texture2D,
     grass: raylib.Texture2D,
+    enemy_mouse: raylib.Texture2D,
 
     pub fn load(allocator: std.mem.Allocator) Assets {
         // NOTE: raylib must have InitWindow() called before loading textures
@@ -19,6 +20,7 @@ pub const Assets = struct {
             .campfire = raylib.cdef.LoadTexture("assets/campfire_128x64.png"),
             .water = raylib.cdef.LoadTexture("assets/water.png"),
             .grass = raylib.cdef.LoadTexture("assets/grass.png"),
+            .enemy_mouse = raylib.cdef.LoadTexture("assets/enemy_mouse.png"),
         };
     }
 
@@ -28,5 +30,6 @@ pub const Assets = struct {
         raylib.cdef.UnloadTexture(self.campfire);
         raylib.cdef.UnloadTexture(self.water);
         raylib.cdef.UnloadTexture(self.grass);
+        raylib.cdef.UnloadTexture(self.enemy_mouse);
     }
 };

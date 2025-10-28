@@ -26,6 +26,9 @@ const CameraSystem = @import("ecs/systems/CameraSystem.zig");
 const CameraComp = @import("ecs/components/Camera2D.zig");
 const SpecialTilesGenerationSystem = @import("ecs/systems/SpecialTilesGenerationSystem.zig");
 const SpecialTilesRenderSystem = @import("ecs/systems/SpecialTilesRenderSystem.zig");
+const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
+const EnemyAISystem = @import("ecs/systems/EnemyAISystem.zig");
+const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -113,6 +116,22 @@ pub fn main() !void {
     };
     try SpecialTilesGenerationSystem.SpecialTilesGenerationSystem.generateFromTilemap(&world, special_tiles_config);
 
+    // Initialize enemy spawning system
+    const spawn_seed: u64 = @intCast(std.time.timestamp());
+    var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed);
+    var ai_system = EnemyAISystem.EnemyAISystem.init(spawn_seed +% 1000);
+
+    // Load spawner configuration from JSON
+    SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "spawner_config.json") catch |err| {
+        std.debug.print("Warning: Could not load spawner_config.json: {}\n", .{err});
+        std.debug.print("Creating default spawners instead...\n", .{});
+
+        // Create some default spawners if config file fails
+        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .circular, 500, 400, 6.0, 12);
+        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .random, 1000, 600, 4.0, 10);
+        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .line_horizontal, 700, 300, 5.0, 8);
+    };
+
     // Initialize debug render system
     var debug_system = DebugRenderSystem.DebugRenderSystem{};
     var input_system = InputSystem.InputSystem.init(&debug_system);
@@ -126,6 +145,11 @@ pub fn main() !void {
 
         // Update systems
         input_system.update(&world, dt);
+
+        // Enemy systems
+        try spawn_system.update(&world, &assets, dt);
+        ai_system.update(&world, dt);
+
         MovementSystem.MovementSystem.update(&world, dt);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
@@ -150,10 +174,21 @@ pub fn main() !void {
 
         // Draw UI text
         raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 20, raylib.Color.black);
+        raylib.cdef.DrawText("F2 - Toggle Spawner Zones", 10, 30, 20, raylib.Color.black);
         if (debug_system.show_debug) {
-            raylib.cdef.DrawText("Debug: ON (Green=Walkable, Red=Non-walkable)", 10, 35, 16, raylib.Color.red);
-            raylib.cdef.DrawText("Player collision points shown as small circles", 10, 55, 14, raylib.Color.blue);
+            raylib.cdef.DrawText("Debug: ON (Green=Walkable, Red=Non-walkable)", 10, 55, 16, raylib.Color.red);
+            raylib.cdef.DrawText("Player collision points shown as small circles", 10, 75, 14, raylib.Color.blue);
         }
+
+        // Draw spawner stats
+        var total_enemies: u32 = 0;
+        var spawner_it = world.spawner_store.iterator();
+        while (spawner_it.next()) |entry| {
+            total_enemies += entry.value_ptr.active_enemies;
+        }
+        var enemy_buffer: [64]u8 = undefined;
+        const enemy_text = std.fmt.bufPrintZ(&enemy_buffer, "Total Enemies: {d}", .{total_enemies}) catch "Enemies: ?";
+        raylib.cdef.DrawText(enemy_text.ptr, 10, 95, 20, raylib.Color.dark_green);
     }
 }
 

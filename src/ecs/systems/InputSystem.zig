@@ -17,6 +17,11 @@ pub const InputSystem = struct {
             self.debug_system.toggle();
         }
 
+        // Handle spawner zone toggle
+        if (raylib.cdef.IsKeyPressed(raylib.KeyboardKey.f2)) {
+            self.debug_system.toggleSpawners();
+        }
+
         // Handle movement
         var it = world.velocity_store.iterator();
         while (it.next()) |entry| {
