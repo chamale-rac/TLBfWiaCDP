@@ -8,6 +8,12 @@ pub const MovementSystem = struct {
         var it = world.velocity_store.iterator();
         while (it.next()) |entry| {
             const e = entry.key_ptr.*;
+
+            // Skip entities with movement patterns (enemies)
+            if (world.movement_pattern_store.contains(e)) {
+                continue;
+            }
+
             if (world.transform_store.getPtr(e)) |tr| {
                 const v = entry.value_ptr.*;
 

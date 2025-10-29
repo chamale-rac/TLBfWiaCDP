@@ -9,6 +9,7 @@ const Transform2D = @import("../components/Transform2D.zig");
 const Velocity2D = @import("../components/Velocity2D.zig");
 const AnimatedSprite = @import("../components/AnimatedSprite.zig");
 const ZIndex = @import("../components/ZIndex.zig");
+const MovementPatternComp = @import("../components/MovementPattern.zig");
 
 pub const EnemySpawnSystem = struct {
     // RNG for random spawning
@@ -110,8 +111,8 @@ pub const EnemySpawnSystem = struct {
         // Transform
         try world.transform_store.set(enemy, .{ .x = x, .y = y });
 
-        // Velocity (enemies start with zero velocity, AI will control movement)
-        try world.velocity_store.set(enemy, .{ .vx = 0, .vy = 0 });
+        // NOTE: Enemies don't use Velocity - they use MovementPattern instead
+        // This prevents them from being affected by special tiles and player movement logic
 
         // Select texture based on enemy type
         const texture = switch (enemy_type) {
@@ -156,6 +157,58 @@ pub const EnemySpawnSystem = struct {
             .state_timer = 0.0,
             .next_state_change = initial_state_time,
         });
+
+        // Create movement pattern based on spawner configuration
+        try self.createMovementPattern(world, enemy, spawner, x, y);
+    }
+
+    /// Create and assign movement pattern to enemy
+    fn createMovementPattern(self: *EnemySpawnSystem, world: *WorldMod.World, enemy: WorldMod.Entity, spawner: EnemySpawnerComp.EnemySpawner, spawn_x: f32, spawn_y: f32) !void {
+        const random = self.rng.random();
+
+        // Calculate random speed between min and max
+        const speed_range = spawner.movement_speed_max - spawner.movement_speed_min;
+        const random_speed = spawner.movement_speed_min + (random.float(f32) * speed_range);
+
+        var movement_pattern = MovementPatternComp.MovementPattern{
+            .speed = random_speed,
+        };
+
+        switch (spawner.movement_pattern) {
+            .tracking => {
+                movement_pattern.pattern_type = .tracking;
+                movement_pattern.tracking_lerp_speed = spawner.tracking_lerp;
+            },
+            .circular => {
+                movement_pattern.pattern_type = .circular;
+                movement_pattern.orbit_center_x = spawn_x;
+                movement_pattern.orbit_center_y = spawn_y;
+                movement_pattern.orbit_radius = spawner.orbit_radius;
+                movement_pattern.orbit_speed = spawner.orbit_speed;
+                movement_pattern.orbit_clockwise = spawner.orbit_clockwise;
+                movement_pattern.orbit_angle = random.float(f32) * 2.0 * std.math.pi; // Random starting angle
+            },
+            .patrol => {
+                movement_pattern.pattern_type = .patrol;
+                movement_pattern.patrol_pause_time = spawner.patrol_pause;
+                movement_pattern.patrol_loop = spawner.patrol_loop;
+
+                // Create simple patrol waypoints around spawn point
+                // (In a real scenario, these would come from JSON)
+                const patrol_size: f32 = 100.0;
+                const waypoints = try world.allocator.alloc(MovementPatternComp.MovementPattern.Waypoint, 4);
+                waypoints[0] = .{ .x = spawn_x - patrol_size, .y = spawn_y - patrol_size };
+                waypoints[1] = .{ .x = spawn_x + patrol_size, .y = spawn_y - patrol_size };
+                waypoints[2] = .{ .x = spawn_x + patrol_size, .y = spawn_y + patrol_size };
+                waypoints[3] = .{ .x = spawn_x - patrol_size, .y = spawn_y + patrol_size };
+                movement_pattern.waypoints = waypoints;
+            },
+            .stationary => {
+                movement_pattern.pattern_type = .stationary;
+            },
+        }
+
+        try world.movement_pattern_store.set(enemy, movement_pattern);
     }
 
     /// Clean up dead enemies and update spawner counts

@@ -9,10 +9,29 @@ pub const EnemyType = enum {
 };
 
 // EnemySpawner component - controls spawning of enemies
+pub const MovementPatternType = enum {
+    tracking,
+    circular,
+    patrol,
+    stationary,
+};
+
 pub const EnemySpawner = struct {
     // Spawner configuration
     pattern: SpawnPattern = .random,
     enemy_type: EnemyType = .mouse,
+
+    // Movement pattern configuration
+    movement_pattern: MovementPatternType = .stationary,
+    movement_speed_min: f32 = 40.0,
+    movement_speed_max: f32 = 60.0,
+    tracking_lerp: f32 = 2.0,
+    orbit_radius: f32 = 100.0,
+    orbit_speed: f32 = 1.0,
+    orbit_clockwise: bool = true,
+    // Patrol waypoints stored as JSON string or handled separately
+    patrol_pause: f32 = 0.0,
+    patrol_loop: bool = true,
 
     // Time-based activation (survival time in seconds)
     start_time: f32 = 0.0, // When this spawner becomes active (survival time)

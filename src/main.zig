@@ -27,7 +27,7 @@ const CameraComp = @import("ecs/components/Camera2D.zig");
 const SpecialTilesGenerationSystem = @import("ecs/systems/SpecialTilesGenerationSystem.zig");
 const SpecialTilesRenderSystem = @import("ecs/systems/SpecialTilesRenderSystem.zig");
 const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
-const EnemyAISystem = @import("ecs/systems/EnemyAISystem.zig");
+const MovementPatternSystem = @import("ecs/systems/MovementPatternSystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
 
@@ -121,10 +121,10 @@ pub fn main() !void {
     const game_timer_entity = world.create();
     try world.game_timer_store.set(game_timer_entity, .{});
 
-    // Initialize enemy spawning system
+    // Initialize enemy spawning and movement systems
     const spawn_seed: u64 = @intCast(std.time.timestamp());
     var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed);
-    var ai_system = EnemyAISystem.EnemyAISystem.init(spawn_seed +% 1000);
+    var movement_pattern_system = MovementPatternSystem.MovementPatternSystem.init(player);
 
     // Load spawner configuration from JSON
     SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "assets/spawner_config.json") catch |err| {
@@ -158,7 +158,8 @@ pub fn main() !void {
 
         // Enemy systems
         try spawn_system.update(&world, &assets, dt);
-        ai_system.update(&world, dt);
+        // Movement pattern system handles enemy movement and sprite direction
+        movement_pattern_system.update(&world, dt);
 
         MovementSystem.MovementSystem.update(&world, dt);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
