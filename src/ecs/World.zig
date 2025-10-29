@@ -6,6 +6,7 @@ const IntGridMod = @import("components/IntGrid.zig");
 const SpecialTilesMod = @import("components/SpecialTiles.zig");
 const EnemyComp = @import("components/Enemy.zig");
 const EnemySpawnerComp = @import("components/EnemySpawner.zig");
+const GameTimerComp = @import("components/GameTimer.zig");
 
 pub const Entity = u32;
 
@@ -27,6 +28,7 @@ pub const World = struct {
     special_tiles_store: ComponentStore.ComponentStore(SpecialTilesMod.SpecialTiles),
     enemy_store: ComponentStore.ComponentStore(EnemyComp.Enemy),
     spawner_store: ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner),
+    game_timer_store: ComponentStore.ComponentStore(GameTimerComp.GameTimer),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -43,6 +45,7 @@ pub const World = struct {
             .special_tiles_store = ComponentStore.ComponentStore(SpecialTilesMod.SpecialTiles).init(allocator),
             .enemy_store = ComponentStore.ComponentStore(EnemyComp.Enemy).init(allocator),
             .spawner_store = ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner).init(allocator),
+            .game_timer_store = ComponentStore.ComponentStore(GameTimerComp.GameTimer).init(allocator),
         };
     }
 
@@ -77,6 +80,7 @@ pub const World = struct {
         self.special_tiles_store.deinit();
         self.enemy_store.deinit();
         self.spawner_store.deinit();
+        self.game_timer_store.deinit();
     }
 
     pub fn create(self: *Self) Entity {

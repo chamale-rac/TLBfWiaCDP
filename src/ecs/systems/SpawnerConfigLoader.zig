@@ -28,10 +28,15 @@ pub const SpawnerConfigLoader = struct {
             const pattern_str = spawner_obj.get("pattern").?.string;
             const pattern = parsePattern(pattern_str);
 
+            const enemy_type_str = spawner_obj.get("enemy_type").?.string;
+            const enemy_type = parseEnemyType(enemy_type_str);
+
             const spawner_entity = world.create();
             try world.spawner_store.set(spawner_entity, .{
                 .pattern = pattern,
-                .enemy_type = spawner_obj.get("enemy_type").?.string,
+                .enemy_type = enemy_type,
+                .start_time = @floatCast(spawner_obj.get("start_time").?.float),
+                .end_time = @floatCast(spawner_obj.get("end_time").?.float),
                 .spawn_interval = @floatCast(spawner_obj.get("spawn_interval").?.float),
                 .max_enemies = @intCast(spawner_obj.get("max_enemies").?.integer),
                 .enemies_per_spawn = @intCast(spawner_obj.get("enemies_per_spawn").?.integer),
@@ -59,6 +64,21 @@ pub const SpawnerConfigLoader = struct {
         return .random; // Default
     }
 
+    fn parseEnemyType(type_str: []const u8) EnemySpawnerComp.EnemyType {
+        if (std.mem.eql(u8, type_str, "mouse")) {
+            return .mouse;
+        } else if (std.mem.eql(u8, type_str, "rabbit")) {
+            return .rabbit;
+        } else if (std.mem.eql(u8, type_str, "sheep")) {
+            return .sheep;
+        } else if (std.mem.eql(u8, type_str, "wolf")) {
+            return .wolf;
+        } else if (std.mem.eql(u8, type_str, "lizard")) {
+            return .lizard;
+        }
+        return .mouse; // Default
+    }
+
     /// Create a default spawner manually
     pub fn createDefaultSpawner(
         world: *WorldMod.World,
@@ -67,11 +87,14 @@ pub const SpawnerConfigLoader = struct {
         center_y: f32,
         spawn_interval: f32,
         max_enemies: u32,
+        start_time: f32,
     ) !void {
         const spawner_entity = world.create();
         try world.spawner_store.set(spawner_entity, .{
             .pattern = pattern,
-            .enemy_type = "mouse",
+            .enemy_type = .mouse,
+            .start_time = start_time,
+            .end_time = -1.0,
             .spawn_interval = spawn_interval,
             .max_enemies = max_enemies,
             .enemies_per_spawn = 3,

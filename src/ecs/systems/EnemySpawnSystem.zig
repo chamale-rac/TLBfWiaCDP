@@ -22,12 +22,24 @@ pub const EnemySpawnSystem = struct {
 
     /// Update all spawners, spawning enemies when needed
     pub fn update(self: *EnemySpawnSystem, world: *WorldMod.World, assets: *Assets.Assets, dt: f32) !void {
+        // Get game time from the game timer
+        var game_time: f32 = 0.0;
+        var timer_it = world.game_timer_store.iterator();
+        if (timer_it.next()) |entry| {
+            game_time = entry.value_ptr.elapsed_time;
+        }
+
         var spawner_it = world.spawner_store.iterator();
         while (spawner_it.next()) |entry| {
             const spawner_entity = entry.key_ptr.*;
             const spawner = entry.value_ptr;
 
             if (!spawner.enabled) continue;
+
+            // Check if spawner is active based on game time
+            spawner.is_active_by_time = spawner.isActiveAtTime(game_time);
+
+            if (!spawner.is_active_by_time) continue;
 
             // Update timer
             spawner.time_until_next_spawn -= dt;
@@ -91,17 +103,30 @@ pub const EnemySpawnSystem = struct {
     fn createEnemy(self: *EnemySpawnSystem, world: *WorldMod.World, assets: *Assets.Assets, spawner_entity: WorldMod.Entity, x: f32, y: f32) !void {
         const enemy = world.create();
 
+        // Get spawner to determine enemy type
+        const spawner = world.spawner_store.get(spawner_entity) orelse return;
+        const enemy_type = spawner.enemy_type;
+
         // Transform
         try world.transform_store.set(enemy, .{ .x = x, .y = y });
 
         // Velocity (enemies start with zero velocity, AI will control movement)
         try world.velocity_store.set(enemy, .{ .vx = 0, .vy = 0 });
 
-        // Animated sprite using mouse texture
+        // Select texture based on enemy type
+        const texture = switch (enemy_type) {
+            .mouse => assets.enemy_mouse,
+            .rabbit => assets.enemy_rabbit,
+            .sheep => assets.enemy_sheep,
+            .wolf => assets.enemy_wolf,
+            .lizard => assets.enemy_lizard,
+        };
+
+        // Animated sprite (all use same LPC format)
         try world.sprite_store.set(enemy, .{
-            .texture = assets.enemy_mouse,
-            .grid = LPC.mouseGrid(),
-            .set = LPC.mouseAnimationSet(),
+            .texture = texture,
+            .grid = LPC.mouseGrid(), // Same grid for all LPC sprites
+            .set = LPC.mouseAnimationSet(), // Same animation set for all
             .current = .idle,
             .direction = .front,
             .seconds_per_frame = 0.12,
@@ -114,16 +139,23 @@ pub const EnemySpawnSystem = struct {
         // Enemy component with random initial wander direction
         const random = self.rng.random();
         const initial_state_time = 1.0 + random.float(f32) * 2.0;
+
+        // Convert spawner enemy type to component enemy type
+        const component_enemy_type: EnemyComp.Enemy.EnemyType = switch (enemy_type) {
+            .mouse => .mouse,
+            .rabbit => .rabbit,
+            .sheep => .sheep,
+            .wolf => .wolf,
+            .lizard => .lizard,
+        };
+
         try world.enemy_store.set(enemy, .{
-            .enemy_type = .mouse,
+            .enemy_type = component_enemy_type,
             .ai_state = .idle,
             .speed = 40.0 + random.float(f32) * 20.0, // Random speed between 40-60
             .state_timer = 0.0,
             .next_state_change = initial_state_time,
         });
-
-        // Track which spawner created this enemy
-        _ = spawner_entity; // Could use this for spawner tracking if needed
     }
 
     /// Clean up dead enemies and update spawner counts

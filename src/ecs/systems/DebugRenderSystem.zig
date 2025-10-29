@@ -157,10 +157,22 @@ pub const DebugRenderSystem = struct {
 
             // Draw spawner status text near center
             const text_x = center_x + 10;
-            const text_y = center_y - 20;
+            const text_y = center_y - 40;
+
+            // Show enemy count
             var buffer: [64]u8 = undefined;
             const status_text = std.fmt.bufPrintZ(&buffer, "{d}/{d}", .{ spawner.active_enemies, spawner.max_enemies }) catch "?/?";
             raylib.cdef.DrawText(status_text.ptr, text_x, text_y, 16, raylib.Color.white);
+
+            // Show activation time
+            var time_range_buffer: [64]u8 = undefined;
+            const time_range_text = if (spawner.end_time < 0.0)
+                std.fmt.bufPrintZ(&time_range_buffer, "{d}s-INF", .{@as(i32, @intFromFloat(spawner.start_time))}) catch "?"
+            else
+                std.fmt.bufPrintZ(&time_range_buffer, "{d}s-{d}s", .{ @as(i32, @intFromFloat(spawner.start_time)), @as(i32, @intFromFloat(spawner.end_time)) }) catch "?";
+
+            const time_color = if (spawner.is_active_by_time) raylib.Color.lime else raylib.Color.gray;
+            raylib.cdef.DrawText(time_range_text.ptr, text_x, text_y + 20, 14, time_color);
         }
     }
 };

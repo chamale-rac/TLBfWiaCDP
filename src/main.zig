@@ -29,6 +29,7 @@ const SpecialTilesRenderSystem = @import("ecs/systems/SpecialTilesRenderSystem.z
 const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
 const EnemyAISystem = @import("ecs/systems/EnemyAISystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
+const GameTimer = @import("ecs/components/GameTimer.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -116,20 +117,24 @@ pub fn main() !void {
     };
     try SpecialTilesGenerationSystem.SpecialTilesGenerationSystem.generateFromTilemap(&world, special_tiles_config);
 
+    // Create game timer entity
+    const game_timer_entity = world.create();
+    try world.game_timer_store.set(game_timer_entity, .{});
+
     // Initialize enemy spawning system
     const spawn_seed: u64 = @intCast(std.time.timestamp());
     var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed);
     var ai_system = EnemyAISystem.EnemyAISystem.init(spawn_seed +% 1000);
 
     // Load spawner configuration from JSON
-    SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "spawner_config.json") catch |err| {
-        std.debug.print("Warning: Could not load spawner_config.json: {}\n", .{err});
+    SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "assets/spawner_config.json") catch |err| {
+        std.debug.print("Warning: Could not load assets/spawner_config.json: {}\n", .{err});
         std.debug.print("Creating default spawners instead...\n", .{});
 
         // Create some default spawners if config file fails
-        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .circular, 500, 400, 6.0, 12);
-        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .random, 1000, 600, 4.0, 10);
-        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .line_horizontal, 700, 300, 5.0, 8);
+        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .circular, 500, 400, 6.0, 12, 0.0);
+        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .random, 1000, 600, 4.0, 10, 15.0);
+        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .line_horizontal, 700, 300, 5.0, 8, 30.0);
     };
 
     // Initialize debug render system
@@ -142,6 +147,11 @@ pub fn main() !void {
         const now: f32 = @floatCast(raylib.cdef.GetTime());
         const dt: f32 = now - last_time;
         last_time = now;
+
+        // Update game timer
+        if (world.game_timer_store.getPtr(game_timer_entity)) |timer| {
+            timer.update(dt);
+        }
 
         // Update systems
         input_system.update(&world, dt);
@@ -160,21 +170,36 @@ pub fn main() !void {
         raylib.cdef.BeginDrawing();
         defer raylib.cdef.EndDrawing();
         raylib.cdef.ClearBackground(raylib.Color.ray_white);
-        // 2D world rendering under camera
+
+        // === 2D WORLD RENDERING (with camera) ===
         CameraSystem.CameraSystem.begin2D(&world, cam_e);
-        defer CameraSystem.CameraSystem.end2D();
         // Draw tilemap first (water then grass per cell)
         TilemapRenderSystem.TilemapRenderSystem.draw(&world);
         // Draw special tiles (always visible)
         SpecialTilesRenderSystem.SpecialTilesRenderSystem.draw(&world);
         try RenderSystem.RenderSystem.draw(&world);
-
-        // Draw debug overlay if enabled
+        // Draw debug overlay if enabled (world-space elements)
         debug_system.draw(&world);
+        CameraSystem.CameraSystem.end2D();
+
+        // === UI OVERLAY RENDERING (screen-space, fixed) ===
+        // Draw survival timer (large and prominent)
+        if (world.game_timer_store.get(game_timer_entity)) |timer| {
+            const minutes = timer.getMinutes();
+            const seconds = timer.getSeconds();
+            var timer_buffer: [64]u8 = undefined;
+            const timer_text = std.fmt.bufPrintZ(&timer_buffer, "TIEMPO: {d:0>2}:{d:0>2}", .{ @abs(minutes), @abs(seconds) }) catch "TIME: ??:??";
+
+            // Draw with background for visibility
+            const timer_x = 960 - 250;
+            const timer_y = 10;
+            raylib.cdef.DrawRectangle(timer_x - 10, timer_y - 5, 240, 45, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 150 });
+            raylib.cdef.DrawText(timer_text.ptr, timer_x, timer_y, 32, raylib.Color{ .r = 255, .g = 215, .b = 0, .a = 255 }); // Gold
+        }
 
         // Draw UI text
-        raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 20, raylib.Color.black);
-        raylib.cdef.DrawText("F2 - Toggle Spawner Zones", 10, 30, 20, raylib.Color.black);
+        raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 18, raylib.Color.black);
+        raylib.cdef.DrawText("F2 - Toggle Spawner Zones", 10, 30, 18, raylib.Color.black);
         if (debug_system.show_debug) {
             raylib.cdef.DrawText("Debug: ON (Green=Walkable, Red=Non-walkable)", 10, 55, 16, raylib.Color.red);
             raylib.cdef.DrawText("Player collision points shown as small circles", 10, 75, 14, raylib.Color.blue);
@@ -182,13 +207,20 @@ pub fn main() !void {
 
         // Draw spawner stats
         var total_enemies: u32 = 0;
+        var active_spawners: u32 = 0;
         var spawner_it = world.spawner_store.iterator();
         while (spawner_it.next()) |entry| {
-            total_enemies += entry.value_ptr.active_enemies;
+            const spawner = entry.value_ptr.*;
+            total_enemies += spawner.active_enemies;
+            if (spawner.is_active_by_time) active_spawners += 1;
         }
         var enemy_buffer: [64]u8 = undefined;
-        const enemy_text = std.fmt.bufPrintZ(&enemy_buffer, "Total Enemies: {d}", .{total_enemies}) catch "Enemies: ?";
-        raylib.cdef.DrawText(enemy_text.ptr, 10, 95, 20, raylib.Color.dark_green);
+        const enemy_text = std.fmt.bufPrintZ(&enemy_buffer, "Enemigos: {d}", .{total_enemies}) catch "Enemigos: ?";
+        raylib.cdef.DrawText(enemy_text.ptr, 10, 95, 22, raylib.Color.dark_green);
+
+        var spawner_buffer: [64]u8 = undefined;
+        const spawner_text = std.fmt.bufPrintZ(&spawner_buffer, "Spawners Activos: {d}", .{active_spawners}) catch "Spawners: ?";
+        raylib.cdef.DrawText(spawner_text.ptr, 10, 120, 18, raylib.Color.dark_blue);
     }
 }
 

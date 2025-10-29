@@ -13,7 +13,10 @@ pub const Enemy = struct {
 
     pub const EnemyType = enum {
         mouse,
-        // Add more enemy types here in the future
+        rabbit,
+        sheep,
+        wolf,
+        lizard,
     };
 
     pub const AIState = enum {

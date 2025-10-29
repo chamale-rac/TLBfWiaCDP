@@ -1,0 +1,86 @@
+{
+  "comment": "Spawner configuration - enemies spawn based on survival time",
+  "spawners": [
+    {
+      "name": "Easy Wave - Rabbits (Circular)",
+      "pattern": "circular",
+      "enemy_type": "rabbit",
+      "start_time": 0.0,
+      "end_time": 30.0,
+      "spawn_interval": 8.0,
+      "max_enemies": 6,
+      "enemies_per_spawn": 3,
+      "center_x": 500.0,
+      "center_y": 400.0,
+      "width": 0.0,
+      "height": 0.0,
+      "radius": 150.0,
+      "enabled": true
+    },
+    {
+      "name": "Medium Wave - Sheep (Line Horizontal)",
+      "pattern": "line_horizontal",
+      "enemy_type": "sheep",
+      "start_time": 15.0,
+      "end_time": 60.0,
+      "spawn_interval": 6.0,
+      "max_enemies": 8,
+      "enemies_per_spawn": 4,
+      "center_x": 800.0,
+      "center_y": 200.0,
+      "width": 400.0,
+      "height": 100.0,
+      "radius": 0.0,
+      "enabled": true
+    },
+    {
+      "name": "Medium Wave - Mice (Random)",
+      "pattern": "random",
+      "enemy_type": "mouse",
+      "start_time": 30.0,
+      "end_time": -1.0,
+      "spawn_interval": 5.0,
+      "max_enemies": 12,
+      "enemies_per_spawn": 3,
+      "center_x": 1000.0,
+      "center_y": 500.0,
+      "width": 400.0,
+      "height": 400.0,
+      "radius": 0.0,
+      "enabled": true
+    },
+    {
+      "name": "Hard Wave - Lizards (Line Vertical)",
+      "pattern": "line_vertical",
+      "enemy_type": "lizard",
+      "start_time": 45.0,
+      "end_time": -1.0,
+      "spawn_interval": 5.0,
+      "max_enemies": 10,
+      "enemies_per_spawn": 5,
+      "center_x": 300.0,
+      "center_y": 400.0,
+      "width": 100.0,
+      "height": 400.0,
+      "radius": 0.0,
+      "enabled": true
+    },
+    {
+      "name": "Extreme Wave - Wolves (Circular)",
+      "pattern": "circular",
+      "enemy_type": "wolf",
+      "start_time": 60.0,
+      "end_time": -1.0,
+      "spawn_interval": 4.0,
+      "max_enemies": 15,
+      "enemies_per_spawn": 8,
+      "center_x": 700.0,
+      "center_y": 600.0,
+      "width": 0.0,
+      "height": 0.0,
+      "radius": 200.0,
+      "enabled": true
+    }
+  ]
+}
+
