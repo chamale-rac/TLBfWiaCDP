@@ -30,6 +30,9 @@ const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
 const MovementPatternSystem = @import("ecs/systems/MovementPatternSystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
+const BottleSystem = @import("ecs/systems/BottleSystem.zig");
+
+const bottle_goal: usize = 3;
 
 pub fn main() !void {
     // Initialize raylib
@@ -117,6 +120,11 @@ pub fn main() !void {
     };
     try SpecialTilesGenerationSystem.SpecialTilesGenerationSystem.generateFromTilemap(&world, special_tiles_config);
 
+    const bottle_seed: u64 = @intCast(std.time.timestamp());
+    BottleSystem.BottleSystem.spawnRandomOnGrass(&world, bottle_seed, bottle_goal) catch |err| {
+        std.debug.print("Warning: Could not place bottles: {}\n", .{err});
+    };
+
     // Create game timer entity
     const game_timer_entity = world.create();
     try world.game_timer_store.set(game_timer_entity, .{});
@@ -162,6 +170,7 @@ pub fn main() !void {
         movement_pattern_system.update(&world, dt);
 
         MovementSystem.MovementSystem.update(&world, dt);
+        BottleSystem.BottleSystem.update(&world, player);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
         // Update camera effects/follow
@@ -178,6 +187,7 @@ pub fn main() !void {
         TilemapRenderSystem.TilemapRenderSystem.draw(&world);
         // Draw special tiles (always visible)
         SpecialTilesRenderSystem.SpecialTilesRenderSystem.draw(&world);
+        BottleSystem.BottleSystem.draw(&world);
         try RenderSystem.RenderSystem.draw(&world);
         // Draw debug overlay if enabled (world-space elements)
         debug_system.draw(&world);
@@ -222,6 +232,23 @@ pub fn main() !void {
         var spawner_buffer: [64]u8 = undefined;
         const spawner_text = std.fmt.bufPrintZ(&spawner_buffer, "Spawners Activos: {d}", .{active_spawners}) catch "Spawners: ?";
         raylib.cdef.DrawText(spawner_text.ptr, 10, 120, 18, raylib.Color.dark_blue);
+
+        const bottle_progress = BottleSystem.BottleSystem.getProgress(&world);
+        var bottle_buffer: [64]u8 = undefined;
+        const bottle_text = std.fmt.bufPrintZ(&bottle_buffer, "Botellas: {d}/{d}", .{ bottle_progress.collected, bottle_goal }) catch "Botellas: ?/3";
+        raylib.cdef.DrawRectangle(10, 145, 190, 32, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 140 });
+        raylib.cdef.DrawText(bottle_text.ptr, 18, 150, 22, raylib.Color{ .r = 0, .g = 228, .b = 255, .a = 255 });
+
+        if (bottle_progress.collected >= bottle_goal) {
+            const box_w = 420;
+            const box_h = 110;
+            const box_x = (960 - box_w) / 2;
+            const box_y = (540 - box_h) / 2;
+            raylib.cdef.DrawRectangle(box_x, box_y, box_w, box_h, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 160 });
+            raylib.cdef.DrawRectangleLines(box_x, box_y, box_w, box_h, raylib.Color{ .r = 0, .g = 228, .b = 48, .a = 255 });
+            raylib.cdef.DrawText("¡GANASTE!", box_x + 90, box_y + 15, 36, raylib.Color{ .r = 0, .g = 255, .b = 127, .a = 255 });
+            raylib.cdef.DrawText("Recolectaste las 3 botellas.", box_x + 40, box_y + 60, 24, raylib.Color{ .r = 255, .g = 255, .b = 255, .a = 255 });
+        }
     }
 }
 
