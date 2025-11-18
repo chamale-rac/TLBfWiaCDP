@@ -29,6 +29,7 @@ const SpecialTilesRenderSystem = @import("ecs/systems/SpecialTilesRenderSystem.z
 const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
 const MovementPatternSystem = @import("ecs/systems/MovementPatternSystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
+const DifficultyProgression = @import("ecs/systems/DifficultyProgression.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
 
 pub fn main() !void {
@@ -104,6 +105,21 @@ pub fn main() !void {
     // Initialize IntGrid system for walkability
     IntGridSystem.IntGridSystem.setupFromTilemap(&world);
 
+    const spawner_distribution = SpawnerConfigLoader.SpawnerConfigLoader.DistributionConfig{
+        .seed = 987654321,
+        .max_spawners = 30,
+        .min_distance_tiles = 14,
+        .random_region_tiles = 7.0,
+        .line_length_tiles = 9.0,
+        .circular_radius_tiles = 5.0,
+        .base_spawn_interval = 8.0,
+        .base_max_enemies = 6,
+        .base_enemies_per_spawn = 1,
+    };
+    SpawnerConfigLoader.SpawnerConfigLoader.generateDistributedSpawners(&world, spawner_distribution) catch |err| {
+        std.debug.print("Warning: Could not distribute spawners: {}\n", .{err});
+    };
+
     // Initialize special tiles with configurable parameters
     const special_tiles_config = SpecialTilesGenerationSystem.SpecialTilesConfig{
         .seed = 67890, // Random seed for tile generation
@@ -123,19 +139,9 @@ pub fn main() !void {
 
     // Initialize enemy spawning and movement systems
     const spawn_seed: u64 = @intCast(std.time.timestamp());
-    var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed);
+    const difficulty_curve = DifficultyProgression.default_progression;
+    var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed, difficulty_curve);
     var movement_pattern_system = MovementPatternSystem.MovementPatternSystem.init(player);
-
-    // Load spawner configuration from JSON
-    SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "assets/spawner_config.json") catch |err| {
-        std.debug.print("Warning: Could not load assets/spawner_config.json: {}\n", .{err});
-        std.debug.print("Creating default spawners instead...\n", .{});
-
-        // Create some default spawners if config file fails
-        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .circular, 500, 400, 6.0, 12, 0.0);
-        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .random, 1000, 600, 4.0, 10, 15.0);
-        try SpawnerConfigLoader.SpawnerConfigLoader.createDefaultSpawner(&world, .line_horizontal, 700, 300, 5.0, 8, 30.0);
-    };
 
     // Initialize debug render system
     var debug_system = DebugRenderSystem.DebugRenderSystem{};

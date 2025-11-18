@@ -10,14 +10,19 @@ const Velocity2D = @import("../components/Velocity2D.zig");
 const AnimatedSprite = @import("../components/AnimatedSprite.zig");
 const ZIndex = @import("../components/ZIndex.zig");
 const MovementPatternComp = @import("../components/MovementPattern.zig");
+const Difficulty = @import("DifficultyProgression.zig");
 
 pub const EnemySpawnSystem = struct {
     // RNG for random spawning
     rng: std.Random.DefaultPrng,
+    difficulty: Difficulty.DifficultyProgression,
+    active_stage_index: ?usize = null,
 
-    pub fn init(seed: u64) EnemySpawnSystem {
+    pub fn init(seed: u64, difficulty: Difficulty.DifficultyProgression) EnemySpawnSystem {
         return .{
             .rng = std.Random.DefaultPrng.init(seed),
+            .difficulty = difficulty,
+            .active_stage_index = null,
         };
     }
 
@@ -29,6 +34,8 @@ pub const EnemySpawnSystem = struct {
         if (timer_it.next()) |entry| {
             game_time = entry.value_ptr.elapsed_time;
         }
+
+        try self.syncDifficultyStage(world, game_time);
 
         var spawner_it = world.spawner_store.iterator();
         while (spawner_it.next()) |entry| {
@@ -216,5 +223,54 @@ pub const EnemySpawnSystem = struct {
         // In a real game, you'd check for dead enemies and remove them
         // For now, this is a placeholder for future death/cleanup logic
         _ = world;
+    }
+
+    fn syncDifficultyStage(self: *EnemySpawnSystem, world: *WorldMod.World, game_time: f32) !void {
+        if (self.difficulty.stageIndexForTime(game_time)) |idx| {
+            if (self.active_stage_index == null or self.active_stage_index.? != idx) {
+                try self.applyDifficultyStage(world, idx);
+                self.active_stage_index = idx;
+            }
+        } else {
+            self.active_stage_index = null;
+        }
+    }
+
+    fn applyDifficultyStage(self: *EnemySpawnSystem, world: *WorldMod.World, stage_index: usize) !void {
+        if (stage_index >= self.difficulty.stages.len) return;
+        const stage = self.difficulty.stages[stage_index];
+        if (stage.profiles.len == 0) return;
+
+        const random = self.rng.random();
+
+        var spawner_it = world.spawner_store.iterator();
+        while (spawner_it.next()) |entry| {
+            const spawner = entry.value_ptr;
+            const profile = stage.chooseProfile(random);
+            const interval = intervalWithJitter(profile, random);
+
+            spawner.enemy_type = profile.enemy_type;
+            spawner.movement_pattern = profile.movement_pattern;
+            spawner.movement_speed_min = profile.movement_speed_min;
+            spawner.movement_speed_max = profile.movement_speed_max;
+            spawner.tracking_lerp = profile.tracking_lerp;
+            spawner.orbit_radius = profile.orbit_radius;
+            spawner.orbit_speed = profile.orbit_speed;
+            spawner.orbit_clockwise = profile.orbit_clockwise;
+            spawner.patrol_pause = profile.patrol_pause;
+            spawner.patrol_loop = profile.patrol_loop;
+            spawner.spawn_interval = interval;
+            spawner.enemies_per_spawn = profile.enemies_per_spawn;
+            spawner.max_enemies = profile.max_enemies;
+            spawner.resetTimer();
+        }
+    }
+
+    fn intervalWithJitter(profile: Difficulty.EnemyProfile, random: std.Random) f32 {
+        if (profile.spawn_interval_jitter <= 0.0) return profile.spawn_interval;
+        const min_factor = @max(0.1, 1.0 - profile.spawn_interval_jitter);
+        const max_factor = 1.0 + profile.spawn_interval_jitter;
+        const factor = min_factor + (max_factor - min_factor) * random.float(f32);
+        return profile.spawn_interval * factor;
     }
 };
