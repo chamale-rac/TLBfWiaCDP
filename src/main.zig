@@ -13,6 +13,7 @@ const Velocity2D = @import("ecs/components/Velocity2D.zig");
 const AnimatedSprite = @import("ecs/components/AnimatedSprite.zig");
 const Background = @import("ecs/components/Background.zig");
 const ZIndex = @import("ecs/components/ZIndex.zig");
+const PlayerHealth = @import("ecs/components/PlayerHealth.zig");
 const InputSystem = @import("ecs/systems/InputSystem.zig");
 const MovementSystem = @import("ecs/systems/MovementSystem.zig");
 const AnimationSystem = @import("ecs/systems/AnimationSystem.zig");
@@ -30,6 +31,7 @@ const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
 const MovementPatternSystem = @import("ecs/systems/MovementPatternSystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
+const PlayerHealthSystem = @import("ecs/systems/PlayerHealthSystem.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -69,6 +71,7 @@ pub fn main() !void {
         .layer = 0,
     });
     try world.z_index_store.set(player, .{ .value = 0 });
+    try world.player_health_store.set(player, PlayerHealth.PlayerHealth{});
 
     // Campfire entity (single row, 128x64 image, each frame 32x32, row index 1)
     const camp = world.create();
@@ -125,6 +128,7 @@ pub fn main() !void {
     const spawn_seed: u64 = @intCast(std.time.timestamp());
     var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed);
     var movement_pattern_system = MovementPatternSystem.MovementPatternSystem.init(player);
+    var player_health_system = PlayerHealthSystem.PlayerHealthSystem.init(player);
 
     // Load spawner configuration from JSON
     SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "assets/spawner_config.json") catch |err| {
@@ -162,6 +166,7 @@ pub fn main() !void {
         movement_pattern_system.update(&world, dt);
 
         MovementSystem.MovementSystem.update(&world, dt);
+        player_health_system.update(&world, dt);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
         // Update camera effects/follow
@@ -196,6 +201,46 @@ pub fn main() !void {
             const timer_y = 10;
             raylib.cdef.DrawRectangle(timer_x - 10, timer_y - 5, 240, 45, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 150 });
             raylib.cdef.DrawText(timer_text.ptr, timer_x, timer_y, 32, raylib.Color{ .r = 255, .g = 215, .b = 0, .a = 255 }); // Gold
+        }
+
+        if (world.player_health_store.get(player)) |health| {
+            const screen_width = raylib.cdef.GetScreenWidth();
+            const heart_width: i32 = 28;
+            const heart_height: i32 = 20;
+            const spacing: i32 = 8;
+            const heart_y: i32 = 12;
+            const circle_radius: i32 = heart_height / 2;
+            var idx: u8 = 0;
+            while (idx < health.max_hearts) : (idx += 1) {
+                const offset: i32 = @intCast(idx);
+                const heart_x = screen_width - 10 - heart_width - offset * (heart_width + spacing);
+                const left_center_x = heart_x + circle_radius;
+                const right_center_x = heart_x + heart_width - circle_radius;
+                const center_y = heart_y + circle_radius;
+                const bottom_tip_y = heart_y + heart_height + circle_radius / 2;
+
+                if (idx < health.current_hearts) {
+                    const fill_color = raylib.Color{ .r = 220, .g = 20, .b = 60, .a = 255 };
+                    raylib.cdef.DrawCircle(left_center_x, center_y, @floatFromInt(circle_radius), fill_color);
+                    raylib.cdef.DrawCircle(right_center_x, center_y, @floatFromInt(circle_radius), fill_color);
+                    raylib.cdef.DrawTriangle(
+                        raylib.Vector2{ .x = @floatFromInt(heart_x), .y = @floatFromInt(center_y) },
+                        raylib.Vector2{ .x = @floatFromInt(heart_x + heart_width), .y = @floatFromInt(center_y) },
+                        raylib.Vector2{ .x = @floatFromInt(heart_x + heart_width / 2), .y = @floatFromInt(bottom_tip_y) },
+                        fill_color,
+                    );
+                } else {
+                    const outline_color = raylib.Color{ .r = 180, .g = 180, .b = 180, .a = 255 };
+                    raylib.cdef.DrawCircleLines(left_center_x, center_y, @floatFromInt(circle_radius), outline_color);
+                    raylib.cdef.DrawCircleLines(right_center_x, center_y, @floatFromInt(circle_radius), outline_color);
+                    raylib.cdef.DrawTriangleLines(
+                        raylib.Vector2{ .x = @floatFromInt(heart_x), .y = @floatFromInt(center_y) },
+                        raylib.Vector2{ .x = @floatFromInt(heart_x + heart_width), .y = @floatFromInt(center_y) },
+                        raylib.Vector2{ .x = @floatFromInt(heart_x + heart_width / 2), .y = @floatFromInt(bottom_tip_y) },
+                        outline_color,
+                    );
+                }
+            }
         }
 
         // Draw UI text

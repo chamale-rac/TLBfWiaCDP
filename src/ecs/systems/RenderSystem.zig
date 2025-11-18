@@ -17,6 +17,7 @@ const DrawCommand = struct {
             src: raylib.Rectangle,
             w: f32,
             h: f32,
+            color: raylib.Color,
         },
     },
 };
@@ -48,6 +49,7 @@ pub const RenderSystem = struct {
                 const z = if (world.z_index_store.get(e)) |zi| zi.value else 0;
                 const spr = entry.value_ptr.*;
                 const src = spr.calcSourceRect();
+                const tint = spriteTint(world, e);
                 try commands.append(allocator, .{
                     .z = z,
                     .x = tr.x,
@@ -57,6 +59,7 @@ pub const RenderSystem = struct {
                         .src = src,
                         .w = @floatFromInt(spr.grid.frame_width),
                         .h = @floatFromInt(spr.grid.frame_height),
+                        .color = tint,
                     } },
                 });
             }
@@ -97,9 +100,18 @@ pub const RenderSystem = struct {
                 .sprite => |s| {
                     const dest = raylib.Rectangle{ .x = dc.x, .y = dc.y, .width = s.w, .height = s.h };
                     const origin = raylib.Vector2{ .x = 0, .y = 0 };
-                    raylib.cdef.DrawTexturePro(s.texture, s.src, dest, origin, 0, raylib.Color.white);
+                    raylib.cdef.DrawTexturePro(s.texture, s.src, dest, origin, 0, s.color);
                 },
             }
         }
     }
 };
+
+fn spriteTint(world: *WorldMod.World, entity: WorldMod.Entity) raylib.Color {
+    if (world.player_health_store.get(entity)) |health| {
+        if (health.blink_is_red) {
+            return raylib.Color{ .r = 255, .g = 120, .b = 120, .a = 255 };
+        }
+    }
+    return raylib.Color.white;
+}

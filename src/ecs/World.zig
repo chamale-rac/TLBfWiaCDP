@@ -8,6 +8,7 @@ const EnemyComp = @import("components/Enemy.zig");
 const EnemySpawnerComp = @import("components/EnemySpawner.zig");
 const GameTimerComp = @import("components/GameTimer.zig");
 const MovementPatternComp = @import("components/MovementPattern.zig");
+const PlayerHealthComp = @import("components/PlayerHealth.zig");
 
 pub const Entity = u32;
 
@@ -31,6 +32,7 @@ pub const World = struct {
     spawner_store: ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner),
     game_timer_store: ComponentStore.ComponentStore(GameTimerComp.GameTimer),
     movement_pattern_store: ComponentStore.ComponentStore(MovementPatternComp.MovementPattern),
+    player_health_store: ComponentStore.ComponentStore(PlayerHealthComp.PlayerHealth),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -49,6 +51,7 @@ pub const World = struct {
             .spawner_store = ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner).init(allocator),
             .game_timer_store = ComponentStore.ComponentStore(GameTimerComp.GameTimer).init(allocator),
             .movement_pattern_store = ComponentStore.ComponentStore(MovementPatternComp.MovementPattern).init(allocator),
+            .player_health_store = ComponentStore.ComponentStore(PlayerHealthComp.PlayerHealth).init(allocator),
         };
     }
 
@@ -84,6 +87,7 @@ pub const World = struct {
         self.enemy_store.deinit();
         self.spawner_store.deinit();
         self.game_timer_store.deinit();
+        self.player_health_store.deinit();
 
         // Free movement pattern waypoints
         var movement_it = self.movement_pattern_store.iterator();
