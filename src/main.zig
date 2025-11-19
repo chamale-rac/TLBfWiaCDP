@@ -30,6 +30,8 @@ const EnemySpawnSystem = @import("ecs/systems/EnemySpawnSystem.zig");
 const MovementPatternSystem = @import("ecs/systems/MovementPatternSystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
+const PlayerHealth = @import("effects/PlayerHealth.zig");
+const PlayerDamageSystem = @import("ecs/systems/PlayerDamageSystem.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -69,6 +71,8 @@ pub fn main() !void {
         .layer = 0,
     });
     try world.z_index_store.set(player, .{ .value = 0 });
+
+    var player_health = PlayerHealth.PlayerHealth.init(3);
 
     // Campfire entity (single row, 128x64 image, each frame 32x32, row index 1)
     const camp = world.create();
@@ -162,6 +166,7 @@ pub fn main() !void {
         movement_pattern_system.update(&world, dt);
 
         MovementSystem.MovementSystem.update(&world, dt);
+        PlayerDamageSystem.PlayerDamageSystem.update(&world, player, &player_health, dt);
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
         // Update camera effects/follow
@@ -178,7 +183,17 @@ pub fn main() !void {
         TilemapRenderSystem.TilemapRenderSystem.draw(&world);
         // Draw special tiles (always visible)
         SpecialTilesRenderSystem.SpecialTilesRenderSystem.draw(&world);
-        try RenderSystem.RenderSystem.draw(&world);
+        const player_tint: ?RenderSystem.RenderSystem.TintOverride = blk: {
+            if (player_health.isBlinking()) {
+                const color = if (player_health.isBlinkPhaseRed())
+                    raylib.Color{ .r = 255, .g = 100, .b = 100, .a = 255 }
+                else
+                    raylib.Color.white;
+                break :blk .{ .entity = player, .color = color };
+            }
+            break :blk null;
+        };
+        try RenderSystem.RenderSystem.draw(&world, player_tint);
         // Draw debug overlay if enabled (world-space elements)
         debug_system.draw(&world);
         CameraSystem.CameraSystem.end2D();
@@ -197,6 +212,7 @@ pub fn main() !void {
             raylib.cdef.DrawRectangle(timer_x - 10, timer_y - 5, 240, 45, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 150 });
             raylib.cdef.DrawText(timer_text.ptr, timer_x, timer_y, 32, raylib.Color{ .r = 255, .g = 215, .b = 0, .a = 255 }); // Gold
         }
+        drawPlayerHearts(player_health);
 
         // Draw UI text
         raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 18, raylib.Color.black);
@@ -223,6 +239,50 @@ pub fn main() !void {
         const spawner_text = std.fmt.bufPrintZ(&spawner_buffer, "Spawners Activos: {d}", .{active_spawners}) catch "Spawners: ?";
         raylib.cdef.DrawText(spawner_text.ptr, 10, 120, 18, raylib.Color.dark_blue);
     }
+}
+
+fn drawPlayerHearts(health: PlayerHealth.PlayerHealth) void {
+    const hearts = health.getHearts();
+    const heart_spacing: i32 = 34;
+    const heart_size: i32 = 26;
+    const total_width = @as(i32, @intCast(hearts.max)) * heart_spacing;
+    const screen_width = raylib.cdef.GetScreenWidth();
+    const start_x = screen_width - total_width - 20;
+    const y = 60;
+
+    var index: u8 = 0;
+    while (index < hearts.max) : (index += 1) {
+        const heart_x = start_x + @as(i32, index) * heart_spacing;
+        const is_full = index < hearts.current;
+        drawHeartShape(heart_x, y, heart_size, is_full);
+    }
+}
+
+fn drawHeartShape(x: i32, y: i32, size: i32, filled: bool) void {
+    const fill_color = if (filled)
+        raylib.Color{ .r = 220, .g = 50, .b = 60, .a = 255 }
+    else
+        raylib.Color{ .r = 120, .g = 60, .b = 70, .a = 160 };
+    const outline_color = raylib.Color{ .r = 40, .g = 0, .b = 0, .a = 255 };
+
+    const width = @as(f32, @floatFromInt(size));
+    const radius = width * 0.3;
+    const top_left_x = @as(f32, @floatFromInt(x));
+    const top_left_y = @as(f32, @floatFromInt(y));
+
+    const left_center = raylib.Vector2{ .x = top_left_x + radius, .y = top_left_y + radius };
+    const right_center = raylib.Vector2{ .x = top_left_x + width - radius, .y = top_left_y + radius };
+    const bottom_point = raylib.Vector2{ .x = top_left_x + width / 2.0, .y = top_left_y + width };
+    const triangle_p1 = raylib.Vector2{ .x = top_left_x, .y = top_left_y + radius };
+    const triangle_p2 = raylib.Vector2{ .x = top_left_x + width, .y = top_left_y + radius };
+
+    raylib.cdef.DrawCircleV(left_center, radius, fill_color);
+    raylib.cdef.DrawCircleV(right_center, radius, fill_color);
+    raylib.cdef.DrawTriangle(triangle_p1, triangle_p2, bottom_point, fill_color);
+
+    raylib.cdef.DrawCircleLines(@as(i32, @intFromFloat(left_center.x)), @as(i32, @intFromFloat(left_center.y)), radius, outline_color);
+    raylib.cdef.DrawCircleLines(@as(i32, @intFromFloat(right_center.x)), @as(i32, @intFromFloat(right_center.y)), radius, outline_color);
+    raylib.cdef.DrawTriangleLines(triangle_p1, triangle_p2, bottom_point, outline_color);
 }
 
 // Tests removed from main executable to avoid pulling testing deps

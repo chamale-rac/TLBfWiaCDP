@@ -17,12 +17,18 @@ const DrawCommand = struct {
             src: raylib.Rectangle,
             w: f32,
             h: f32,
+            color: raylib.Color,
         },
     },
 };
 
 pub const RenderSystem = struct {
-    pub fn draw(world: *WorldMod.World) !void {
+    pub const TintOverride = struct {
+        entity: WorldMod.Entity,
+        color: raylib.Color,
+    };
+
+    pub fn draw(world: *WorldMod.World, tint_override: ?TintOverride) !void {
         var arena = std.heap.ArenaAllocator.init(world.allocator);
         defer arena.deinit();
         const allocator = arena.allocator();
@@ -39,7 +45,8 @@ pub const RenderSystem = struct {
             try commands.append(allocator, .{ .z = z, .x = 0, .y = 0, .cmd = .{ .background = .{ .texture = bg.texture, .repeat = bg.repeat } } });
         }
 
-        // Sprites
+        const highlight = tint_override;
+
         var sp_it = world.sprite_store.iterator();
         while (sp_it.next()) |entry| {
             const e = entry.key_ptr.*;
@@ -48,6 +55,13 @@ pub const RenderSystem = struct {
                 const z = if (world.z_index_store.get(e)) |zi| zi.value else 0;
                 const spr = entry.value_ptr.*;
                 const src = spr.calcSourceRect();
+                const color = blk: {
+                    if (highlight) |h| {
+                        if (h.entity == e) break :blk h.color;
+                    }
+                    break :blk raylib.Color.white;
+                };
+
                 try commands.append(allocator, .{
                     .z = z,
                     .x = tr.x,
@@ -57,6 +71,7 @@ pub const RenderSystem = struct {
                         .src = src,
                         .w = @floatFromInt(spr.grid.frame_width),
                         .h = @floatFromInt(spr.grid.frame_height),
+                        .color = color,
                     } },
                 });
             }
@@ -97,7 +112,7 @@ pub const RenderSystem = struct {
                 .sprite => |s| {
                     const dest = raylib.Rectangle{ .x = dc.x, .y = dc.y, .width = s.w, .height = s.h };
                     const origin = raylib.Vector2{ .x = 0, .y = 0 };
-                    raylib.cdef.DrawTexturePro(s.texture, s.src, dest, origin, 0, raylib.Color.white);
+                    raylib.cdef.DrawTexturePro(s.texture, s.src, dest, origin, 0, s.color);
                 },
             }
         }
