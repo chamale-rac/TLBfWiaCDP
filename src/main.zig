@@ -31,9 +31,10 @@ const CollectibleSystem = @import("ecs/systems/CollectibleSystem.zig");
 const ProjectileSystem = @import("ecs/systems/ProjectileSystem.zig");
 const CollisionConfig = @import("ecs/components/CollisionConfig.zig");
 
-const GamePhase = enum { splash, menu, how_to, playing, lost, won };
+const GamePhase = enum { splash, menu, how_to, playing, pause, lost, won };
 const MenuAction = enum { none, play, how_to };
 const EndScreenAction = enum { none, restart, menu };
+const PauseAction = enum { none, resume_game, restart, menu };
 const splash_duration: f32 = 2.8;
 
 const GameSession = struct {
@@ -255,16 +256,23 @@ pub fn main() !void {
                         phase = .lost;
                     } else if (game.level_completed) {
                         phase = .won;
+                    } else if (raylib.cdef.IsKeyPressed(raylib.KeyboardKey.p)) {
+                        phase = .pause;
                     }
                 } else {
                     phase = .menu;
+                }
+            },
+            .pause => {
+                if (raylib.cdef.IsKeyPressed(raylib.KeyboardKey.p)) {
+                    phase = .playing;
                 }
             },
             else => {},
         }
 
         const gameplay_phase = switch (phase) {
-            .playing, .lost, .won => true,
+            .playing, .pause, .lost, .won => true,
             else => false,
         };
         const clear_color = if (gameplay_phase)
@@ -306,6 +314,24 @@ pub fn main() !void {
             .lost => {
                 const end_action = drawEndScreen(false);
                 switch (end_action) {
+                    .restart => {
+                        startSession(&session, allocator, &assets, &debug_system) catch |err| {
+                            std.debug.print("Could not restart game: {}\n", .{err});
+                            break;
+                        };
+                        phase = .playing;
+                    },
+                    .menu => {
+                        destroySession(&session);
+                        phase = .menu;
+                    },
+                    else => {},
+                }
+            },
+            .pause => {
+                const pause_action = drawPauseScreen();
+                switch (pause_action) {
+                    .resume_game => phase = .playing,
                     .restart => {
                         startSession(&session, allocator, &assets, &debug_system) catch |err| {
                             std.debug.print("Could not restart game: {}\n", .{err});
@@ -595,6 +621,7 @@ fn drawHowToPlay() bool {
         "Defense: Press Space to throw a rock in the last direction you moved.",
         "Survival: You only have 3 hits, so dodge or stun enemies quickly.",
         "Tip: Rocks can push enemies back—use them to carve a safe path.",
+        "Pause: Press P to open the pause menu (resume, restart or go back).",
     };
     var y: i32 = 110;
     for (details) |line| {
@@ -653,6 +680,43 @@ fn drawEndScreen(did_win: bool) EndScreenAction {
     if (drawButton(restart_rect, "Restart", true)) return .restart;
     if (drawButton(menu_rect, "Main menu", false)) return .menu;
     if (raylib.cdef.IsKeyPressed(raylib.KeyboardKey.enter)) return .restart;
+    if (raylib.cdef.IsKeyPressed(raylib.KeyboardKey.escape)) return .menu;
+
+    return .none;
+}
+
+fn drawPauseScreen() PauseAction {
+    const screen_w = raylib.cdef.GetScreenWidth();
+    const screen_h = raylib.cdef.GetScreenHeight();
+    raylib.cdef.DrawRectangle(0, 0, screen_w, screen_h, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 120 });
+
+    const card = raylib.Rectangle{
+        .x = 160,
+        .y = 140,
+        .width = @as(f32, @floatFromInt(screen_w - 320)),
+        .height = 230,
+    };
+    raylib.cdef.DrawRectangleRec(card, raylib.Color{ .r = 252, .g = 242, .b = 214, .a = 245 });
+    raylib.cdef.DrawRectangleLinesEx(card, 2.0, raylib.Color{ .r = 110, .g = 70, .b = 32, .a = 255 });
+
+    drawCenteredText("Juego en pausa", @as(i32, @intFromFloat(card.y + 35)), 34, raylib.Color{ .r = 90, .g = 60, .b = 35, .a = 255 });
+    drawCenteredText("Presiona P para continuar en cualquier momento", @as(i32, @intFromFloat(card.y + 80)), 20, raylib.Color{ .r = 70, .g = 40, .b = 20, .a = 255 });
+
+    const button_w: f32 = 200;
+    const button_h: f32 = 52;
+    const spacing: f32 = 24;
+    const total_width = button_w * 3.0 + spacing * 2.0;
+    const start_x = @as(f32, @floatFromInt(screen_w)) / 2.0 - total_width / 2.0;
+    const y = card.y + card.height - button_h - 35.0;
+
+    const resume_rect = raylib.Rectangle{ .x = start_x, .y = y, .width = button_w, .height = button_h };
+    const restart_rect = raylib.Rectangle{ .x = start_x + button_w + spacing, .y = y, .width = button_w, .height = button_h };
+    const menu_rect = raylib.Rectangle{ .x = start_x + (button_w + spacing) * 2.0, .y = y, .width = button_w, .height = button_h };
+
+    if (drawButton(resume_rect, "Resume", true)) return .resume_game;
+    if (drawButton(restart_rect, "Restart", false)) return .restart;
+    if (drawButton(menu_rect, "Main menu", false)) return .menu;
+
     if (raylib.cdef.IsKeyPressed(raylib.KeyboardKey.escape)) return .menu;
 
     return .none;
