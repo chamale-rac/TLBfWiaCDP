@@ -20,6 +20,7 @@ pub const Assets = struct {
     heart_filled: raylib.Texture2D,
     rock: raylib.Texture2D,
     bottle: raylib.Texture2D,
+    banner: raylib.Texture2D,
 
     pub fn load(allocator: std.mem.Allocator) Assets {
         // NOTE: raylib must have InitWindow() called before loading textures
@@ -39,6 +40,7 @@ pub const Assets = struct {
             .heart_filled = raylib.cdef.LoadTexture("assets/hearth_filled.png"),
             .rock = raylib.cdef.LoadTexture("assets/rock.png"),
             .bottle = raylib.cdef.LoadTexture("assets/bottle.png"),
+            .banner = raylib.cdef.LoadTexture("assets/banner.jpg"),
         };
     }
 
@@ -57,5 +59,6 @@ pub const Assets = struct {
         raylib.cdef.UnloadTexture(self.heart_filled);
         raylib.cdef.UnloadTexture(self.rock);
         raylib.cdef.UnloadTexture(self.bottle);
+        raylib.cdef.UnloadTexture(self.banner);
     }
 };

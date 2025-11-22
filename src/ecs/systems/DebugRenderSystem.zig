@@ -6,7 +6,7 @@ const CollisionConfig = @import("../components/CollisionConfig.zig");
 
 pub const DebugRenderSystem = struct {
     show_debug: bool = false,
-    show_spawners: bool = true, // Show spawners by default
+    show_spawners: bool = false,
 
     pub fn toggle(self: *@This()) void {
         self.show_debug = !self.show_debug;
