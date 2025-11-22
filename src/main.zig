@@ -31,6 +31,7 @@ const MovementPatternSystem = @import("ecs/systems/MovementPatternSystem.zig");
 const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
 const PlayerHealth = @import("effects/PlayerHealth.zig");
+const PlayerStamina = @import("effects/PlayerStamina.zig");
 const PlayerDamageSystem = @import("ecs/systems/PlayerDamageSystem.zig");
 const CollectibleSystem = @import("ecs/systems/CollectibleSystem.zig");
 const ProjectileSystem = @import("ecs/systems/ProjectileSystem.zig");
@@ -76,6 +77,7 @@ pub fn main() !void {
     try world.z_index_store.set(player, .{ .value = 0 });
 
     var player_health = PlayerHealth.PlayerHealth.init(3);
+    var player_stamina = PlayerStamina.PlayerStamina.init(100.0, 35.0, 28.0, 0.6);
     var bottle_progress = CollectibleSystem.CollectibleSystem.Progress.init(0);
     var level_completed = false;
     const run_seed: u64 = @intCast(std.time.timestamp());
@@ -157,7 +159,7 @@ pub fn main() !void {
 
     // Initialize debug render system
     var debug_system = DebugRenderSystem.DebugRenderSystem{};
-    var input_system = InputSystem.InputSystem.init(&debug_system, &assets, player);
+    var input_system = InputSystem.InputSystem.init(&debug_system, &assets, player, &player_stamina);
 
     var last_time: f32 = @floatCast(raylib.cdef.GetTime());
 
@@ -234,6 +236,7 @@ pub fn main() !void {
         }
         drawPlayerHearts(player_health, &assets);
         drawBottleProgress(bottle_progress, &assets);
+        drawStaminaBar(player_stamina);
 
         // Draw UI text
         raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 18, raylib.Color.black);
@@ -317,6 +320,35 @@ fn drawBottleProgress(progress: CollectibleSystem.CollectibleSystem.Progress, as
         };
         raylib.cdef.DrawTextureEx(assets.bottle, draw_pos, 0.0, scale, color);
     }
+}
+
+fn drawStaminaBar(stamina: PlayerStamina.PlayerStamina) void {
+    const label_x: i32 = 20;
+    const label_y: i32 = 150;
+    const bar_width: i32 = 240;
+    const bar_height: i32 = 16;
+
+    raylib.cdef.DrawText("Resistencia", label_x, label_y - 22, 18, raylib.Color{ .r = 20, .g = 20, .b = 20, .a = 255 });
+
+    const outline_color = raylib.Color{ .r = 15, .g = 15, .b = 15, .a = 220 };
+    const bg_color = raylib.Color{ .r = 40, .g = 40, .b = 40, .a = 200 };
+    const fill_high = raylib.Color{ .r = 0, .g = 200, .b = 120, .a = 230 };
+    const fill_low = raylib.Color{ .r = 230, .g = 120, .b = 0, .a = 230 };
+
+    const ratio = std.math.clamp(stamina.fraction(), 0.0, 1.0);
+    const inner_width = bar_width - 4;
+    const fill_width = @as(i32, @intFromFloat(@as(f32, @floatFromInt(inner_width)) * ratio));
+    const fill_color = if (ratio > 0.3) fill_high else fill_low;
+
+    raylib.cdef.DrawRectangle(label_x - 2, label_y - 2, bar_width + 4, bar_height + 4, outline_color);
+    raylib.cdef.DrawRectangle(label_x, label_y, bar_width, bar_height, bg_color);
+    raylib.cdef.DrawRectangle(label_x + 2, label_y + 2, fill_width, bar_height - 4, fill_color);
+
+    var text_buffer: [32]u8 = undefined;
+    const percent_value: i32 = @intFromFloat(ratio * 100.0);
+    const text = std.fmt.bufPrintZ(&text_buffer, "{d}%", .{percent_value}) catch "??%";
+    const text_x = label_x + bar_width + 12;
+    raylib.cdef.DrawText(text.ptr, text_x, label_y - 2, 18, raylib.Color{ .r = 20, .g = 20, .b = 20, .a = 255 });
 }
 
 fn drawBottleIndicators(world: *WorldMod.World, player_entity: WorldMod.Entity) void {

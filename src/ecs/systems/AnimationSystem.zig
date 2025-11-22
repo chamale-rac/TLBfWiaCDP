@@ -24,15 +24,21 @@ pub const AnimationSystem = struct {
         const vel_opt = world.velocity_store.get(player_entity);
         if (sprite_opt) |sprite| {
             var moving = false;
+            var running = false;
             if (vel_opt) |v| {
                 moving = (v.vx != 0 or v.vy != 0);
+                running = moving and v.is_running;
                 if (@abs(v.vx) >= @abs(v.vy)) {
                     sprite.direction = if (v.vx >= 0) .right else .left;
                 } else {
                     sprite.direction = if (v.vy >= 0) .front else .back;
                 }
             }
-            sprite.current = if (moving) .walk else .idle;
+            if (moving) {
+                sprite.current = if (running) .run else .walk;
+            } else {
+                sprite.current = .idle;
+            }
         }
     }
 };

@@ -5,11 +5,13 @@ const Assets = @import("../../assets/Assets.zig");
 const AnimatedSprite = @import("../components/AnimatedSprite.zig");
 const ProjectileComp = @import("../components/Projectile.zig");
 const CollisionConfig = @import("../components/CollisionConfig.zig");
+const PlayerStamina = @import("../../effects/PlayerStamina.zig");
 
 pub const InputSystem = struct {
     debug_system: *DebugRenderSystemMod.DebugRenderSystem,
     assets: *Assets.Assets,
     player_entity: WorldMod.Entity,
+    stamina: *PlayerStamina.PlayerStamina,
     throw_cooldown: f32 = 0.0,
     last_throw_dir: DirectionVector = DEFAULT_THROW_DIR,
 
@@ -20,6 +22,7 @@ pub const InputSystem = struct {
 
     const DEFAULT_THROW_DIR = DirectionVector{ .x = 0.0, .y = 1.0 };
     const MOVE_SPEED: f32 = 100.0;
+    const RUN_SPEED: f32 = 165.0;
     const ROCK_SPEED: f32 = 460.0;
     const ROCK_LIFETIME: f32 = 2.0;
     const ROCK_COOLDOWN: f32 = 0.5;
@@ -37,11 +40,13 @@ pub const InputSystem = struct {
         debug_system: *DebugRenderSystemMod.DebugRenderSystem,
         assets: *Assets.Assets,
         player_entity: WorldMod.Entity,
+        stamina: *PlayerStamina.PlayerStamina,
     ) InputSystem {
         return .{
             .debug_system = debug_system,
             .assets = assets,
             .player_entity = player_entity,
+            .stamina = stamina,
         };
     }
 
@@ -56,7 +61,7 @@ pub const InputSystem = struct {
             self.debug_system.toggleSpawners();
         }
 
-        self.handleMovement(world);
+        self.handleMovement(world, dt);
         try self.handleThrow(world);
     }
 
@@ -68,24 +73,35 @@ pub const InputSystem = struct {
         }
     }
 
-    fn handleMovement(self: *@This(), world: *WorldMod.World) void {
-        var it = world.velocity_store.iterator();
-        while (it.next()) |entry| {
-            const e = entry.key_ptr.*;
-            if (!world.transform_store.contains(e)) continue;
+    fn handleMovement(self: *@This(), world: *WorldMod.World, dt: f32) void {
+        const v = world.velocity_store.getPtr(self.player_entity) orelse return;
 
-            var v = entry.value_ptr;
+        var input_x: f32 = 0.0;
+        var input_y: f32 = 0.0;
+        if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.w)) input_y -= 1.0;
+        if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.s)) input_y += 1.0;
+        if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.a)) input_x -= 1.0;
+        if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.d)) input_x += 1.0;
+
+        const has_input = (input_x != 0.0 or input_y != 0.0);
+        if (!has_input) {
             v.vx = 0;
             v.vy = 0;
-            if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.w)) v.vy -= MOVE_SPEED;
-            if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.s)) v.vy += MOVE_SPEED;
-            if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.a)) v.vx -= MOVE_SPEED;
-            if (raylib.cdef.IsKeyDown(raylib.KeyboardKey.d)) v.vx += MOVE_SPEED;
-
-            if (e == self.player_entity) {
-                self.updateLastDirection(v.vx, v.vy);
-            }
+            v.is_running = false;
+            self.stamina.tick(false, dt);
+            return;
         }
+
+        const wants_run = raylib.cdef.IsKeyDown(raylib.KeyboardKey.left_shift) or raylib.cdef.IsKeyDown(raylib.KeyboardKey.right_shift);
+        const is_running = wants_run and self.stamina.canRun();
+        const speed = if (is_running) RUN_SPEED else MOVE_SPEED;
+
+        v.vx = input_x * speed;
+        v.vy = input_y * speed;
+        v.is_running = is_running;
+
+        self.stamina.tick(is_running, dt);
+        self.updateLastDirection(v.vx, v.vy);
     }
 
     fn updateLastDirection(self: *@This(), vx: f32, vy: f32) void {

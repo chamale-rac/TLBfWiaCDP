@@ -57,6 +57,7 @@ pub const EnemyAISystem = struct {
         if (world.velocity_store.getPtr(entity)) |vel| {
             vel.vx = 0;
             vel.vy = 0;
+            vel.is_running = false;
         }
 
         // Set animation to idle
@@ -73,6 +74,7 @@ pub const EnemyAISystem = struct {
             const angle = random.float(f32) * 2.0 * std.math.pi;
             vel.vx = @cos(angle) * enemy.speed;
             vel.vy = @sin(angle) * enemy.speed;
+            vel.is_running = false;
         }
 
         // Set animation to walk
