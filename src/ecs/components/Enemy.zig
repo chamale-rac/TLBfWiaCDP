@@ -10,6 +10,8 @@ pub const Enemy = struct {
     state_timer: f32 = 0.0,
     // Next state change time
     next_state_change: f32 = 2.0,
+    // Spawner entity that created this enemy (for bookkeeping)
+    spawner_entity: ?u32 = null,
 
     pub const EnemyType = enum {
         mouse,

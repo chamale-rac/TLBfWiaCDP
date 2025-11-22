@@ -15,6 +15,11 @@ pub const Assets = struct {
     enemy_sheep: raylib.Texture2D,
     enemy_wolf: raylib.Texture2D,
     enemy_lizard: raylib.Texture2D,
+    // UI textures
+    heart_empty: raylib.Texture2D,
+    heart_filled: raylib.Texture2D,
+    rock: raylib.Texture2D,
+    bottle: raylib.Texture2D,
 
     pub fn load(allocator: std.mem.Allocator) Assets {
         // NOTE: raylib must have InitWindow() called before loading textures
@@ -30,6 +35,10 @@ pub const Assets = struct {
             .enemy_sheep = raylib.cdef.LoadTexture("assets/enemy_sheep.png"),
             .enemy_wolf = raylib.cdef.LoadTexture("assets/enemy_wolf.png"),
             .enemy_lizard = raylib.cdef.LoadTexture("assets/enemy_lizard.png"),
+            .heart_empty = raylib.cdef.LoadTexture("assets/hearh_empty.png"),
+            .heart_filled = raylib.cdef.LoadTexture("assets/hearth_filled.png"),
+            .rock = raylib.cdef.LoadTexture("assets/rock.png"),
+            .bottle = raylib.cdef.LoadTexture("assets/bottle.png"),
         };
     }
 
@@ -44,5 +53,9 @@ pub const Assets = struct {
         raylib.cdef.UnloadTexture(self.enemy_sheep);
         raylib.cdef.UnloadTexture(self.enemy_wolf);
         raylib.cdef.UnloadTexture(self.enemy_lizard);
+        raylib.cdef.UnloadTexture(self.heart_empty);
+        raylib.cdef.UnloadTexture(self.heart_filled);
+        raylib.cdef.UnloadTexture(self.rock);
+        raylib.cdef.UnloadTexture(self.bottle);
     }
 };

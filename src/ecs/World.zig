@@ -8,6 +8,8 @@ const EnemyComp = @import("components/Enemy.zig");
 const EnemySpawnerComp = @import("components/EnemySpawner.zig");
 const GameTimerComp = @import("components/GameTimer.zig");
 const MovementPatternComp = @import("components/MovementPattern.zig");
+const ProjectileComp = @import("components/Projectile.zig");
+const CollectibleComp = @import("components/Collectible.zig");
 
 pub const Entity = u32;
 
@@ -31,6 +33,8 @@ pub const World = struct {
     spawner_store: ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner),
     game_timer_store: ComponentStore.ComponentStore(GameTimerComp.GameTimer),
     movement_pattern_store: ComponentStore.ComponentStore(MovementPatternComp.MovementPattern),
+    projectile_store: ComponentStore.ComponentStore(ProjectileComp.Projectile),
+    collectible_store: ComponentStore.ComponentStore(CollectibleComp.Collectible),
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -49,6 +53,8 @@ pub const World = struct {
             .spawner_store = ComponentStore.ComponentStore(EnemySpawnerComp.EnemySpawner).init(allocator),
             .game_timer_store = ComponentStore.ComponentStore(GameTimerComp.GameTimer).init(allocator),
             .movement_pattern_store = ComponentStore.ComponentStore(MovementPatternComp.MovementPattern).init(allocator),
+            .projectile_store = ComponentStore.ComponentStore(ProjectileComp.Projectile).init(allocator),
+            .collectible_store = ComponentStore.ComponentStore(CollectibleComp.Collectible).init(allocator),
         };
     }
 
@@ -84,6 +90,8 @@ pub const World = struct {
         self.enemy_store.deinit();
         self.spawner_store.deinit();
         self.game_timer_store.deinit();
+        self.projectile_store.deinit();
+        self.collectible_store.deinit();
 
         // Free movement pattern waypoints
         var movement_it = self.movement_pattern_store.iterator();

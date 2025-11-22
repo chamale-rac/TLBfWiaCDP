@@ -156,6 +156,7 @@ pub const EnemySpawnSystem = struct {
             .speed = 40.0 + random.float(f32) * 20.0, // Random speed between 40-60
             .state_timer = 0.0,
             .next_state_change = initial_state_time,
+            .spawner_entity = spawner_entity,
         });
 
         // Create movement pattern based on spawner configuration

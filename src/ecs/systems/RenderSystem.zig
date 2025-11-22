@@ -69,8 +69,8 @@ pub const RenderSystem = struct {
                     .cmd = .{ .sprite = .{
                         .texture = spr.texture,
                         .src = src,
-                        .w = @floatFromInt(spr.grid.frame_width),
-                        .h = @floatFromInt(spr.grid.frame_height),
+                        .w = @as(f32, @floatFromInt(spr.grid.frame_width)) * spr.render_scale,
+                        .h = @as(f32, @floatFromInt(spr.grid.frame_height)) * spr.render_scale,
                         .color = color,
                     } },
                 });

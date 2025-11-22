@@ -32,6 +32,7 @@ pub const AnimatedSprite = struct {
     frame_time: f32 = 0,
     seconds_per_frame: f32 = 0.1,
     layer: i32 = 0,
+    render_scale: f32 = 1.0,
 
     pub fn getCurrentAnimation(self: *const AnimatedSprite) AnimationDef {
         return switch (self.current) {

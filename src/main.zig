@@ -32,6 +32,9 @@ const SpawnerConfigLoader = @import("ecs/systems/SpawnerConfigLoader.zig");
 const GameTimer = @import("ecs/components/GameTimer.zig");
 const PlayerHealth = @import("effects/PlayerHealth.zig");
 const PlayerDamageSystem = @import("ecs/systems/PlayerDamageSystem.zig");
+const CollectibleSystem = @import("ecs/systems/CollectibleSystem.zig");
+const ProjectileSystem = @import("ecs/systems/ProjectileSystem.zig");
+const CollisionConfig = @import("ecs/components/CollisionConfig.zig");
 
 pub fn main() !void {
     // Initialize raylib
@@ -73,6 +76,10 @@ pub fn main() !void {
     try world.z_index_store.set(player, .{ .value = 0 });
 
     var player_health = PlayerHealth.PlayerHealth.init(3);
+    var bottle_progress = CollectibleSystem.CollectibleSystem.Progress.init(0);
+    var level_completed = false;
+    const run_seed: u64 = @intCast(std.time.timestamp());
+    const bottle_seed: u64 = run_seed ^ 0xB0771E;
 
     // Campfire entity (single row, 128x64 image, each frame 32x32, row index 1)
     const camp = world.create();
@@ -108,6 +115,13 @@ pub fn main() !void {
     // Initialize IntGrid system for walkability
     IntGridSystem.IntGridSystem.setupFromTilemap(&world);
 
+    const desired_bottles: u32 = 3;
+    const spawned_bottles = CollectibleSystem.CollectibleSystem.spawnBottles(&world, &assets, bottle_seed, desired_bottles) catch |err| blk: {
+        std.debug.print("Failed to spawn bottles: {}\n", .{err});
+        break :blk 0;
+    };
+    bottle_progress.total = spawned_bottles;
+
     // Initialize special tiles with configurable parameters
     const special_tiles_config = SpecialTilesGenerationSystem.SpecialTilesConfig{
         .seed = 67890, // Random seed for tile generation
@@ -126,7 +140,7 @@ pub fn main() !void {
     try world.game_timer_store.set(game_timer_entity, .{});
 
     // Initialize enemy spawning and movement systems
-    const spawn_seed: u64 = @intCast(std.time.timestamp());
+    const spawn_seed: u64 = run_seed ^ 0xF00DF00D;
     var spawn_system = EnemySpawnSystem.EnemySpawnSystem.init(spawn_seed);
     var movement_pattern_system = MovementPatternSystem.MovementPatternSystem.init(player);
 
@@ -143,7 +157,7 @@ pub fn main() !void {
 
     // Initialize debug render system
     var debug_system = DebugRenderSystem.DebugRenderSystem{};
-    var input_system = InputSystem.InputSystem.init(&debug_system);
+    var input_system = InputSystem.InputSystem.init(&debug_system, &assets, player);
 
     var last_time: f32 = @floatCast(raylib.cdef.GetTime());
 
@@ -158,7 +172,7 @@ pub fn main() !void {
         }
 
         // Update systems
-        input_system.update(&world, dt);
+        try input_system.update(&world, dt);
 
         // Enemy systems
         try spawn_system.update(&world, &assets, dt);
@@ -166,7 +180,12 @@ pub fn main() !void {
         movement_pattern_system.update(&world, dt);
 
         MovementSystem.MovementSystem.update(&world, dt);
+        ProjectileSystem.ProjectileSystem.update(&world, dt);
         PlayerDamageSystem.PlayerDamageSystem.update(&world, player, &player_health, dt);
+        CollectibleSystem.CollectibleSystem.update(&world, player, &bottle_progress);
+        if (!level_completed and bottle_progress.isComplete()) {
+            level_completed = true;
+        }
         AnimationSystem.AnimationSystem.syncDirectionAndState(&world, player);
         AnimationSystem.AnimationSystem.update(&world, dt);
         // Update camera effects/follow
@@ -196,6 +215,7 @@ pub fn main() !void {
         try RenderSystem.RenderSystem.draw(&world, player_tint);
         // Draw debug overlay if enabled (world-space elements)
         debug_system.draw(&world);
+        drawBottleIndicators(&world, player);
         CameraSystem.CameraSystem.end2D();
 
         // === UI OVERLAY RENDERING (screen-space, fixed) ===
@@ -212,16 +232,17 @@ pub fn main() !void {
             raylib.cdef.DrawRectangle(timer_x - 10, timer_y - 5, 240, 45, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 150 });
             raylib.cdef.DrawText(timer_text.ptr, timer_x, timer_y, 32, raylib.Color{ .r = 255, .g = 215, .b = 0, .a = 255 }); // Gold
         }
-        drawPlayerHearts(player_health);
+        drawPlayerHearts(player_health, &assets);
+        drawBottleProgress(bottle_progress, &assets);
 
         // Draw UI text
         raylib.cdef.DrawText("F1 - Toggle Debug Overlay", 10, 10, 18, raylib.Color.black);
         raylib.cdef.DrawText("F2 - Toggle Spawner Zones", 10, 30, 18, raylib.Color.black);
+        raylib.cdef.DrawText("Space - Throw Rock", 10, 50, 18, raylib.Color.dark_gray);
         if (debug_system.show_debug) {
-            raylib.cdef.DrawText("Debug: ON (Green=Walkable, Red=Non-walkable)", 10, 55, 16, raylib.Color.red);
-            raylib.cdef.DrawText("Player collision points shown as small circles", 10, 75, 14, raylib.Color.blue);
+            raylib.cdef.DrawText("Debug: ON (Green=Walkable, Red=Non-walkable)", 10, 70, 16, raylib.Color.red);
+            raylib.cdef.DrawText("Player collision points shown as small circles", 10, 90, 14, raylib.Color.blue);
         }
-
         // Draw spawner stats
         var total_enemies: u32 = 0;
         var active_spawners: u32 = 0;
@@ -233,18 +254,24 @@ pub fn main() !void {
         }
         var enemy_buffer: [64]u8 = undefined;
         const enemy_text = std.fmt.bufPrintZ(&enemy_buffer, "Enemigos: {d}", .{total_enemies}) catch "Enemigos: ?";
-        raylib.cdef.DrawText(enemy_text.ptr, 10, 95, 22, raylib.Color.dark_green);
+        raylib.cdef.DrawText(enemy_text.ptr, 10, 130, 22, raylib.Color.dark_green);
 
         var spawner_buffer: [64]u8 = undefined;
         const spawner_text = std.fmt.bufPrintZ(&spawner_buffer, "Spawners Activos: {d}", .{active_spawners}) catch "Spawners: ?";
-        raylib.cdef.DrawText(spawner_text.ptr, 10, 120, 18, raylib.Color.dark_blue);
+        raylib.cdef.DrawText(spawner_text.ptr, 10, 155, 18, raylib.Color.dark_blue);
+
+        if (level_completed) {
+            drawWinMessage();
+        }
     }
 }
 
-fn drawPlayerHearts(health: PlayerHealth.PlayerHealth) void {
+fn drawPlayerHearts(health: PlayerHealth.PlayerHealth, assets: *const Assets.Assets) void {
     const hearts = health.getHearts();
-    const heart_spacing: i32 = 34;
-    const heart_size: i32 = 26;
+    const target_size: f32 = 28.0;
+    const texture_height = @max(1.0, @as(f32, @floatFromInt(assets.heart_filled.height)));
+    const scale = target_size / texture_height;
+    const heart_spacing: i32 = @as(i32, @intFromFloat(target_size + 6.0));
     const total_width = @as(i32, @intCast(hearts.max)) * heart_spacing;
     const screen_width = raylib.cdef.GetScreenWidth();
     const start_x = screen_width - total_width - 20;
@@ -254,35 +281,128 @@ fn drawPlayerHearts(health: PlayerHealth.PlayerHealth) void {
     while (index < hearts.max) : (index += 1) {
         const heart_x = start_x + @as(i32, index) * heart_spacing;
         const is_full = index < hearts.current;
-        drawHeartShape(heart_x, y, heart_size, is_full);
+        const texture = if (is_full) assets.heart_filled else assets.heart_empty;
+        const draw_pos = raylib.Vector2{
+            .x = @as(f32, @floatFromInt(heart_x)),
+            .y = @as(f32, @floatFromInt(y)),
+        };
+        raylib.cdef.DrawTextureEx(texture, draw_pos, 0.0, scale, raylib.Color.white);
     }
 }
 
-fn drawHeartShape(x: i32, y: i32, size: i32, filled: bool) void {
-    const fill_color = if (filled)
-        raylib.Color{ .r = 220, .g = 50, .b = 60, .a = 255 }
-    else
-        raylib.Color{ .r = 120, .g = 60, .b = 70, .a = 160 };
-    const outline_color = raylib.Color{ .r = 40, .g = 0, .b = 0, .a = 255 };
+fn drawBottleProgress(progress: CollectibleSystem.CollectibleSystem.Progress, assets: *const Assets.Assets) void {
+    if (progress.total == 0) return;
 
-    const width = @as(f32, @floatFromInt(size));
-    const radius = width * 0.3;
-    const top_left_x = @as(f32, @floatFromInt(x));
-    const top_left_y = @as(f32, @floatFromInt(y));
+    const label_x: i32 = 20;
+    const label_y: i32 = 110;
+    var label_buffer: [64]u8 = undefined;
+    const label_text = std.fmt.bufPrintZ(&label_buffer, "Botellas: {d}/{d}", .{ progress.collected, progress.total }) catch "Botellas: ?";
+    raylib.cdef.DrawText(label_text.ptr, label_x, label_y - 30, 20, raylib.Color{ .r = 20, .g = 20, .b = 20, .a = 255 });
 
-    const left_center = raylib.Vector2{ .x = top_left_x + radius, .y = top_left_y + radius };
-    const right_center = raylib.Vector2{ .x = top_left_x + width - radius, .y = top_left_y + radius };
-    const bottom_point = raylib.Vector2{ .x = top_left_x + width / 2.0, .y = top_left_y + width };
-    const triangle_p1 = raylib.Vector2{ .x = top_left_x, .y = top_left_y + radius };
-    const triangle_p2 = raylib.Vector2{ .x = top_left_x + width, .y = top_left_y + radius };
+    const target_size: f32 = 36.0;
+    const texture_height = @max(1.0, @as(f32, @floatFromInt(assets.bottle.height)));
+    const scale = target_size / texture_height;
+    const spacing: i32 = @as(i32, @intFromFloat(target_size + 10.0));
 
-    raylib.cdef.DrawCircleV(left_center, radius, fill_color);
-    raylib.cdef.DrawCircleV(right_center, radius, fill_color);
-    raylib.cdef.DrawTriangle(triangle_p1, triangle_p2, bottom_point, fill_color);
+    var index: u32 = 0;
+    while (index < progress.total) : (index += 1) {
+        const bottle_x = label_x + @as(i32, @intCast(index)) * spacing;
+        const color = if (index < progress.collected)
+            raylib.Color.white
+        else
+            raylib.Color{ .r = 255, .g = 255, .b = 255, .a = 120 };
+        const draw_pos = raylib.Vector2{
+            .x = @as(f32, @floatFromInt(bottle_x)),
+            .y = @as(f32, @floatFromInt(label_y)),
+        };
+        raylib.cdef.DrawTextureEx(assets.bottle, draw_pos, 0.0, scale, color);
+    }
+}
 
-    raylib.cdef.DrawCircleLines(@as(i32, @intFromFloat(left_center.x)), @as(i32, @intFromFloat(left_center.y)), radius, outline_color);
-    raylib.cdef.DrawCircleLines(@as(i32, @intFromFloat(right_center.x)), @as(i32, @intFromFloat(right_center.y)), radius, outline_color);
-    raylib.cdef.DrawTriangleLines(triangle_p1, triangle_p2, bottom_point, outline_color);
+fn drawBottleIndicators(world: *WorldMod.World, player_entity: WorldMod.Entity) void {
+    const player_transform = world.transform_store.get(player_entity) orelse return;
+    const cfg = CollisionConfig.CollisionConfig;
+    const player_center = raylib.Vector2{
+        .x = player_transform.x + cfg.SPRITE_HALF_WIDTH,
+        .y = player_transform.y + cfg.SPRITE_HALF_HEIGHT,
+    };
+
+    var it = world.collectible_store.iterator();
+    while (it.next()) |entry| {
+        const entity = entry.key_ptr.*;
+        const collectible = entry.value_ptr.*;
+        if (collectible.kind != .bottle) continue;
+        const transform = world.transform_store.get(entity) orelse continue;
+
+        const bottle_center = raylib.Vector2{
+            .x = transform.x + collectible.width / 2.0,
+            .y = transform.y + collectible.height / 2.0,
+        };
+
+        const dx = bottle_center.x - player_center.x;
+        const dy = bottle_center.y - player_center.y;
+        const dist_sq = dx * dx + dy * dy;
+        if (dist_sq <= 0.0001) continue;
+
+        const inv_dist = 1.0 / @sqrt(dist_sq);
+        const dir_x = dx * inv_dist;
+        const dir_y = dy * inv_dist;
+
+        const base_radius: f32 = 52.0;
+        const arrow_length: f32 = 22.0;
+        const half_width: f32 = 7.0;
+
+        const base = raylib.Vector2{
+            .x = player_center.x + dir_x * base_radius,
+            .y = player_center.y + dir_y * base_radius,
+        };
+        const tip = raylib.Vector2{
+            .x = base.x + dir_x * arrow_length,
+            .y = base.y + dir_y * arrow_length,
+        };
+
+        const perp_x = -dir_y;
+        const perp_y = dir_x;
+        const left = raylib.Vector2{
+            .x = base.x - perp_x * half_width,
+            .y = base.y - perp_y * half_width,
+        };
+        const right = raylib.Vector2{
+            .x = base.x + perp_x * half_width,
+            .y = base.y + perp_y * half_width,
+        };
+
+        const color = raylib.Color{ .r = 255, .g = 140, .b = 0, .a = 215 };
+        raylib.cdef.DrawTriangle(tip, left, right, color);
+    }
+}
+
+fn drawWinMessage() void {
+    const message = "Nivel completado: ¡Recolectaste toda el agua!";
+    const sub_message = "Presiona ESC para salir o reinicia para intentar otra ruta";
+    const font_size = 28;
+    const sub_font_size = 18;
+
+    const text_width = raylib.cdef.MeasureText(message, font_size);
+    const sub_width = raylib.cdef.MeasureText(sub_message, sub_font_size);
+    const screen_width = raylib.cdef.GetScreenWidth();
+    const screen_height = raylib.cdef.GetScreenHeight();
+
+    const box_width = @max(text_width, sub_width) + 60;
+    const box_height = font_size + sub_font_size + 40;
+    const box_x = @divTrunc(screen_width - box_width, 2);
+    const box_y = @divTrunc(screen_height, 2) - box_height;
+
+    raylib.cdef.DrawRectangle(box_x, box_y, box_width, box_height, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 160 });
+    raylib.cdef.DrawRectangleLines(box_x, box_y, box_width, box_height, raylib.Color{ .r = 0, .g = 180, .b = 255, .a = 230 });
+
+    const text_x = @divTrunc(screen_width - text_width, 2);
+    const text_y = box_y + 12;
+    raylib.cdef.DrawText(message, text_x, text_y, font_size, raylib.Color{ .r = 0, .g = 200, .b = 255, .a = 255 });
+
+    const sub_x = @divTrunc(screen_width - sub_width, 2);
+    const sub_y = text_y + font_size + 6;
+    raylib.cdef.DrawText(sub_message, sub_x, sub_y, sub_font_size, raylib.Color.white);
 }
 
 // Tests removed from main executable to avoid pulling testing deps
