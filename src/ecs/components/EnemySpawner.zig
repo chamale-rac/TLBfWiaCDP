@@ -17,9 +17,17 @@ pub const MovementPatternType = enum {
 };
 
 pub const EnemySpawner = struct {
+    pub const Difficulty = enum {
+        easy,
+        medium,
+        hard,
+        extreme,
+    };
+
     // Spawner configuration
     pattern: SpawnPattern = .random,
     enemy_type: EnemyType = .mouse,
+    difficulty: Difficulty = .medium,
 
     // Movement pattern configuration
     movement_pattern: MovementPatternType = .stationary,

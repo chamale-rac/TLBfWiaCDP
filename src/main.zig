@@ -145,7 +145,7 @@ pub fn main() !void {
     var movement_pattern_system = MovementPatternSystem.MovementPatternSystem.init(player);
 
     // Load spawner configuration from JSON
-    SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "assets/spawner_config.json") catch |err| {
+    SpawnerConfigLoader.SpawnerConfigLoader.loadFromFile(&world, allocator, "assets/spawner_config.json", spawn_seed) catch |err| {
         std.debug.print("Warning: Could not load assets/spawner_config.json: {}\n", .{err});
         std.debug.print("Creating default spawners instead...\n", .{});
 
